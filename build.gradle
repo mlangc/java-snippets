@@ -1,0 +1,56 @@
+plugins {
+    id 'java'
+    id "me.champeau.jmh"
+}
+
+group = 'org.example'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation Testing.assertj.core
+    testImplementation Testing.junit.jupiter
+    testImplementation "net.jqwik:jqwik:_"
+
+    implementation 'org.apache.commons:commons-lang3:_'
+    testImplementation 'org.apache.commons:commons-math3:_'
+
+    jmh 'org.openjdk.jmh:jmh-core:_'
+    jmh 'org.openjdk.jmh:jmh-generator-annprocess:_'
+}
+
+test {
+    useJUnitPlatform {
+        includeEngines "jqwik", "junit-jupiter"
+    }
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+compileJava {
+    // To enable argument names in reporting and debugging
+    options.compilerArgs += '-parameters'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.compilerArgs += "--enable-preview"
+}
+
+tasks.withType(Test).configureEach {
+    it.jvmArgs += "--enable-preview"
+}
+
+tasks.withType(JavaExec).configureEach {
+    it.jvmArgs += '--enable-preview'
+}
+
+jmh {
+
+}
