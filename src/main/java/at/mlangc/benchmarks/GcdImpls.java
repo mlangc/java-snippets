@@ -1,8 +1,11 @@
 package at.mlangc.benchmarks;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 public class GcdImpls {
     public static long euclidRecursive(long a, long b) {
-        return Math.absExact(euclidRecursive0(a, b));
+        checkArgument(a >= 0 && b >= 0);
+        return euclidRecursive0(a, b);
     }
 
     private static long euclidRecursive0(long a, long b) {
@@ -10,7 +13,8 @@ public class GcdImpls {
     }
 
     public static long euclidIterative(long a, long b) {
-        return Math.absExact(euclidIterative0(a, b));
+        checkArgument(a >= 0 && b >= 0);
+        return euclidIterative0(a, b);
     }
 
     private static long euclidIterative0(long a, long b) {

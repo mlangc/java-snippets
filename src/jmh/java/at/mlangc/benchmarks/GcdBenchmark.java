@@ -1,14 +1,12 @@
 package at.mlangc.benchmarks;
 
+import com.google.common.math.LongMath;
 import org.apache.commons.math3.util.ArithmeticUtils;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
-
-import static at.mlangc.benchmarks.GcdImpls.euclidIterative;
-import static at.mlangc.benchmarks.GcdImpls.euclidRecursive;
 
 
 @State(Scope.Benchmark)
@@ -18,26 +16,33 @@ import static at.mlangc.benchmarks.GcdImpls.euclidRecursive;
 @BenchmarkMode(Mode.Throughput)
 public class GcdBenchmark {
     private final Random rng = new Random(42);
-    private final long[] longs = rng.longs(1000, Long.MIN_VALUE + 1, Long.MAX_VALUE).toArray();
+    private final long[] longs = rng.longs(1000, Long.MIN_VALUE + 1, Long.MAX_VALUE).map(Math::abs).toArray();
 
     @Benchmark
-    public void recursiveGcd(Blackhole blackhole) {
+    public void euclidRecursive(Blackhole blackhole) {
         for (int i = 0; i < longs.length; i += 2) {
-            blackhole.consume(euclidRecursive(longs[i], longs[i + 1]));
+            blackhole.consume(GcdImpls.euclidRecursive(longs[i], longs[i + 1]));
         }
     }
 
     @Benchmark
-    public void iterativeGcd(Blackhole blackhole) {
+    public void euclidIterative(Blackhole blackhole) {
         for (int i = 0; i < longs.length; i += 2) {
-            blackhole.consume(euclidIterative(longs[i], longs[i + 1]));
+            blackhole.consume(GcdImpls.euclidIterative(longs[i], longs[i + 1]));
         }
     }
 
     @Benchmark
-    public void commonsGcd(Blackhole blackhole) {
+    public void steinCommons(Blackhole blackhole) {
         for (int i = 0; i < longs.length; i += 2) {
             blackhole.consume(ArithmeticUtils.gcd(longs[i], longs[i + 1]));
+        }
+    }
+
+    @Benchmark
+    public void steinGuava(Blackhole blackhole) {
+        for (int i = 0; i < longs.length; i += 2) {
+            blackhole.consume(LongMath.gcd(longs[i], longs[i + 1]));
         }
     }
 }
