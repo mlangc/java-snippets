@@ -5,6 +5,7 @@ import org.apache.commons.math3.util.ArithmeticUtils;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 
+import java.math.BigInteger;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
@@ -17,6 +18,14 @@ import java.util.concurrent.TimeUnit;
 public class GcdBenchmark {
     private final Random rng = new Random(42);
     private final long[] longs = rng.longs(1000, Long.MIN_VALUE + 1, Long.MAX_VALUE).map(Math::abs).toArray();
+
+    @Benchmark
+    public void bigInteger(Blackhole blackhole) {
+        for (int i = 0; i < longs.length; i += 2) {
+            blackhole.consume(
+                    BigInteger.valueOf(longs[i]).gcd(BigInteger.valueOf(longs[i + 1])).longValue());
+        }
+    }
 
     @Benchmark
     public void euclidRecursive(Blackhole blackhole) {
