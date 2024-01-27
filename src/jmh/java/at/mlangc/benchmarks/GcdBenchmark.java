@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 @BenchmarkMode(Mode.Throughput)
 public class GcdBenchmark {
     private final Random rng = new Random(42);
-    private final long[] longs = rng.longs(1000, Long.MIN_VALUE + 1, Long.MAX_VALUE).map(Math::abs).toArray();
+    private final long[] longs = rng.longs(2000, Long.MIN_VALUE + 1, Long.MAX_VALUE).map(Math::abs).toArray();
 
     @Benchmark
     public void bigInteger(Blackhole blackhole) {
