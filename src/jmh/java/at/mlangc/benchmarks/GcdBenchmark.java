@@ -1,7 +1,7 @@
 package at.mlangc.benchmarks;
 
 import com.google.common.math.LongMath;
-import org.apache.commons.math3.util.ArithmeticUtils;
+import org.apache.commons.numbers.core.ArithmeticUtils;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 
@@ -12,8 +12,8 @@ import java.util.concurrent.TimeUnit;
 
 @State(Scope.Benchmark)
 @Fork(value = 1)
-@Warmup(iterations = 5, time = 250, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
+@Warmup(iterations = 3, time = 100, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 5, time = 100, timeUnit = TimeUnit.MILLISECONDS)
 @BenchmarkMode(Mode.Throughput)
 public class GcdBenchmark {
     private final Random rng = new Random(42);
@@ -42,7 +42,7 @@ public class GcdBenchmark {
     }
 
     @Benchmark
-    public void steinCommons(Blackhole blackhole) {
+    public void steinApache(Blackhole blackhole) {
         for (int i = 0; i < longs.length; i += 2) {
             blackhole.consume(ArithmeticUtils.gcd(longs[i], longs[i + 1]));
         }
@@ -52,6 +52,53 @@ public class GcdBenchmark {
     public void steinGuava(Blackhole blackhole) {
         for (int i = 0; i < longs.length; i += 2) {
             blackhole.consume(LongMath.gcd(longs[i], longs[i + 1]));
+        }
+    }
+    @Benchmark
+    public void steinPositive1(Blackhole blackhole) {
+        for (int i = 0; i < longs.length; i += 2) {
+            blackhole.consume(GcdImpls.gcdSteinPositive1(longs[i], longs[i + 1]));
+        }
+    }
+
+    @Benchmark
+    public void steinPositive2(Blackhole blackhole) {
+        for (int i = 0; i < longs.length; i += 2) {
+            blackhole.consume(GcdImpls.gcdSteinPositive2(longs[i], longs[i + 1]));
+        }
+    }
+    @Benchmark
+    public void steinPositive3(Blackhole blackhole) {
+        for (int i = 0; i < longs.length; i += 2) {
+            blackhole.consume(GcdImpls.gcdSteinPositive3(longs[i], longs[i + 1]));
+        }
+    }
+
+    @Benchmark
+    public void steinPositive4(Blackhole blackhole) {
+        for (int i = 0; i < longs.length; i += 2) {
+            blackhole.consume(GcdImpls.gcdSteinPositive4(longs[i], longs[i + 1]));
+        }
+    }
+
+    @Benchmark
+    public void steinPositive5(Blackhole blackhole) {
+        for (int i = 0; i < longs.length; i += 2) {
+            blackhole.consume(GcdImpls.gcdSteinPositive5(longs[i], longs[i + 1]));
+        }
+    }
+
+    @Benchmark
+    public void stein(Blackhole blackhole) {
+        for (int i = 0; i < longs.length; i += 2) {
+            blackhole.consume(GcdImpls.gcdStein(longs[i], longs[i + 1]));
+        }
+    }
+
+    @Benchmark
+    public void steinApacheTweaked(Blackhole blackhole) {
+        for (int i = 0; i < longs.length; i += 2) {
+            blackhole.consume(GcdImpls.gcdApacheTweaked(longs[i], longs[i + 1]));
         }
     }
 }
