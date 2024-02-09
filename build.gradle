@@ -18,7 +18,7 @@ dependencies {
     implementation 'org.apache.commons:commons-lang3:_'
     implementation 'com.google.guava:guava:_'
 
-    implementation 'org.apache.commons:commons-numbers-core:1.1'
+    implementation 'org.apache.commons:commons-numbers-core:_'
 
     jmh 'org.openjdk.jmh:jmh-core:_'
     jmh 'org.openjdk.jmh:jmh-generator-annprocess:_'
@@ -54,5 +54,5 @@ tasks.withType(JavaExec).configureEach {
 }
 
 jmh {
-    includes = "(?i)gcd.*apache.*|.*"
+    includes = ["(?i)gcd.*apache.*|.*"]
 }
