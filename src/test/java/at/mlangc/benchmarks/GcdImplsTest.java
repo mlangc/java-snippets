@@ -20,6 +20,7 @@ public class GcdImplsTest {
         var gcdApache = ArithmeticUtils.gcd(a, b);
         var gcdApacheTweaked = gcdApacheTweaked(a, b);
         var gcdGuava = LongMath.gcd(a, b);
+        var gcdGuavaTweaked = gcdGuavaTweaked(a, b);
         var stein1 = gcdSteinPositive1(a, b);
         var stein2 = gcdSteinPositive2(a, b);
         var stein3 = gcdSteinPositive3(a, b);
@@ -36,6 +37,7 @@ public class GcdImplsTest {
                 .isEqualTo(stein3)
                 .isEqualTo(stein4)
                 .isEqualTo(stein5)
+                .isEqualTo(gcdGuavaTweaked)
                 .isEqualTo(gcdGuava);
     }
 

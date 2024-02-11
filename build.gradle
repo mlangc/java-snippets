@@ -54,5 +54,5 @@ tasks.withType(JavaExec).configureEach {
 }
 
 jmh {
-    includes = ["(?i)gcd.*apache.*|.*"]
+    includes = ["(?i)gcd.*guava.*|.*"]
 }

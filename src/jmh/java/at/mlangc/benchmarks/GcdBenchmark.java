@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit;
 @State(Scope.Benchmark)
 @Fork(value = 1)
 @Warmup(iterations = 3, time = 100, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 5, time = 100, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 10, time = 200, timeUnit = TimeUnit.MILLISECONDS)
 @BenchmarkMode(Mode.Throughput)
 public class GcdBenchmark {
     private final Random rng = new Random(42);
@@ -99,6 +99,13 @@ public class GcdBenchmark {
     public void steinApacheTweaked(Blackhole blackhole) {
         for (int i = 0; i < longs.length; i += 2) {
             blackhole.consume(GcdImpls.gcdApacheTweaked(longs[i], longs[i + 1]));
+        }
+    }
+
+    @Benchmark
+    public void steinGuavaTweaked(Blackhole blackhole) {
+        for (int i = 0; i < longs.length; i += 2) {
+            blackhole.consume(GcdImpls.gcdGuavaTweaked(longs[i], longs[i + 1]));
         }
     }
 }

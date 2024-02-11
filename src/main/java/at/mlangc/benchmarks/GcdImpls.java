@@ -2,6 +2,7 @@ package at.mlangc.benchmarks;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.abs;
+import static java.lang.Math.min;
 
 public class GcdImpls {
     static long euclidRecursive(long a, long b) {
@@ -28,26 +29,26 @@ public class GcdImpls {
         return a;
     }
 
-    static long gcdSteinPositive1(long a, long b) {
-        if (a == 0 || a == b) {
-            return b;
-        } else if (b == 0) {
-            return a;
-        } else if (a % 2 == 0 && b % 2 == 0) {
-            return 2 * gcdSteinPositive1(a / 2, b / 2);
-        } else if (a % 2 == 0) {
-            return gcdSteinPositive1(a / 2, b);
-        } else if (b % 2 == 0) {
-            return gcdSteinPositive1(a, b / 2);
+static long gcdSteinPositive1(long a, long b) {
+    if (a == 0 || a == b) {
+        return b;
+    } else if (b == 0) {
+        return a;
+    } else if (a % 2 == 0 && b % 2 == 0) {
+        return 2 * gcdSteinPositive1(a / 2, b / 2);
+    } else if (a % 2 == 0) {
+        return gcdSteinPositive1(a / 2, b);
+    } else if (b % 2 == 0) {
+        return gcdSteinPositive1(a, b / 2);
+    } else {
+        // both a and b are odd
+        if (a < b) {
+            return gcdSteinPositive1(a, b - a);
         } else {
-            // both a and b are odd
-            if (a < b) {
-                return gcdSteinPositive1(a, b - a);
-            } else {
-                return gcdSteinPositive1(a - b, b);
-            }
+            return gcdSteinPositive1(a - b, b);
         }
     }
+}
 
     static long gcdSteinPositive2(long a, long b) {
         if (a == 0 || a == b) {
@@ -233,5 +234,36 @@ static long gcdStein(long a, long b) {
             // |v| larger: t negative (replace v)
         } while (t != 0);
         return -u * (1L << k); // gcd is u*2^k
+    }
+
+    public static long gcdGuavaTweaked(long a, long b) {
+        if (a == 0 || a == b) {
+            // 0 % b == 0, so b divides a, but the converse doesn't hold.
+            // BigInteger.gcd is consistent with this decision.
+            return b;
+        } else if (b == 0) {
+            return a; // similar logic
+        }
+        /*
+         * Uses the binary GCD algorithm; see http://en.wikipedia.org/wiki/Binary_GCD_algorithm. This is
+         * >60% faster than the Euclidean algorithm in benchmarks.
+         */
+        int aTwos = Long.numberOfTrailingZeros(a);
+        a >>= aTwos; // divide out all 2s
+        int bTwos = Long.numberOfTrailingZeros(b);
+        b >>= bTwos; // divide out all 2s
+        while (true) { // both a, b are odd
+            long delta = a - b; // can't overflow, since a and b are nonnegative
+
+            if (delta == 0) {
+                return a << min(aTwos, bTwos);
+            }
+
+            a = Math.abs(delta);
+            // a is now nonnegative and even
+
+            b += Math.min(delta, 0); // sets b to min(old a, b)
+            a >>= Long.numberOfTrailingZeros(a); // divide out all 2s, since 2 doesn't divide b
+        }
     }
 }
