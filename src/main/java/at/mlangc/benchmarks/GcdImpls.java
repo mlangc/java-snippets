@@ -266,4 +266,47 @@ static long gcdStein(long a, long b) {
             a >>= Long.numberOfTrailingZeros(a); // divide out all 2s, since 2 doesn't divide b
         }
     }
+
+    public static long gcdApacheIntVersionWithLongs(long p, long q) {
+        // Perform the gcd algorithm on negative numbers, so that -2^31 does not
+        // need to be handled separately
+        long a = p > 0 ? -p : p;
+        long b = q > 0 ? -q : q;
+
+        long negatedGcd;
+        if (a == 0) {
+            negatedGcd = b;
+        } else if (b == 0) {
+            negatedGcd = a;
+        } else {
+            // Make "a" and "b" odd, keeping track of common power of 2.
+            final int aTwos = Long.numberOfTrailingZeros(a);
+            final int bTwos = Long.numberOfTrailingZeros(b);
+            a >>= aTwos;
+            b >>= bTwos;
+            final int shift = Math.min(aTwos, bTwos);
+
+            // "a" and "b" are negative and odd.
+            // If a < b then "gdc(a, b)" is equal to "gcd(a - b, b)".
+            // If a > b then "gcd(a, b)" is equal to "gcd(b - a, a)".
+            // Hence, in the successive iterations:
+            //  "a" becomes the negative absolute difference of the current values,
+            //  "b" becomes that value of the two that is closer to zero.
+            while (a != b) {
+                final long delta = a - b;
+                b = Math.max(a, b);
+                a = delta > 0 ? -delta : delta;
+
+                // Remove any power of 2 in "a" ("b" is guaranteed to be odd).
+                a >>= Long.numberOfTrailingZeros(a);
+            }
+
+            // Recover the common power of 2.
+            negatedGcd = a << shift;
+        }
+        if (negatedGcd == Long.MIN_VALUE) {
+            throw new ArithmeticException(GCD_LONG_MIN_ERROR);
+        }
+        return -negatedGcd;
+    }
 }

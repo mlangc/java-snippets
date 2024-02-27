@@ -47,10 +47,12 @@ public class GcdImplsTest {
             var gcdApache = ArithmeticUtils.gcd(a, b);
             var gcdApacheTweaked = gcdApacheTweaked(a, b);
             var gcdStein = gcdStein(a, b);
-            assertThat(gcdApache).isEqualTo(gcdApacheTweaked).isEqualTo(gcdStein);
+            var gcdApacheIntsForLongs = gcdApacheIntVersionWithLongs(a, b);
+            assertThat(gcdApache).isEqualTo(gcdApacheTweaked).isEqualTo(gcdApacheIntsForLongs).isEqualTo(gcdStein);
         } catch (ArithmeticException e) {
             assertThatExceptionOfType(ArithmeticException.class).isThrownBy(() -> gcdApacheTweaked(a, b));
             assertThatExceptionOfType(ArithmeticException.class).isThrownBy(() -> gcdStein(a, b));
+            assertThatExceptionOfType(ArithmeticException.class).isThrownBy(() -> gcdApacheIntVersionWithLongs(a, b));
         }
     }
 }
