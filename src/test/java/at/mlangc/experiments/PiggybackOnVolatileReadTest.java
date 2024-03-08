@@ -1,22 +1,34 @@
 package at.mlangc.experiments;
 
+import org.apache.commons.lang3.mutable.MutableLong;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.util.Arrays;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class PiggybackOnVolatileReadTest {
+    private static final VarHandle LAST_UPDATE_OPAQUE;
+
+    static {
+        try {
+            var lookup = MethodHandles.lookup();
+            LAST_UPDATE_OPAQUE = lookup.findVarHandle(PiggybackOnVolatileReadTest.class, "lastUpdateOpaque", long.class);
+        } catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
     private volatile long lastUpdateVolatile;
-    private long lastUpdatePlain;
+    @SuppressWarnings("unused")
+    private long lastUpdateOpaque;
     private ExecutorService executor;
 
     @BeforeEach
@@ -31,13 +43,13 @@ class PiggybackOnVolatileReadTest {
 
     @ParameterizedTest
     @ValueSource(ints = {1, 10, 100, 1000, 100_000_000 / 8})
-    void volatileReadShouldPublishEffectsBeforeVolatileWrite(int arraySize) throws InterruptedException {
+    void volatileReadShouldPublishEffectsHappenedBeforeVolatileWrite(int arraySize) throws InterruptedException {
         var values = new long[arraySize];
         var stop = new AtomicBoolean();
 
         var reader = (Runnable) () -> {
             while (!stop.get()) {
-                var lastUpdate = this.lastUpdateVolatile;
+                var lastUpdate = lastUpdateVolatile;
                 for (int i = 0; i < values.length; i++) {
                     assertThat(values[i]).as("i=%s", i).isGreaterThanOrEqualTo(lastUpdate);
                 }
@@ -71,10 +83,13 @@ class PiggybackOnVolatileReadTest {
     void plainReadShouldNotPublishEffectsBeforePlainWrite(int arraySize) throws InterruptedException {
         var values = new long[arraySize];
         var stop = new AtomicBoolean();
+        var lastUpdateRead = new MutableLong();
 
         var reader = (Runnable) () -> {
             while (!stop.get()) {
-                var lastUpdate = this.lastUpdatePlain;
+                var lastUpdate = (long) LAST_UPDATE_OPAQUE.getOpaque(this);
+                lastUpdateRead.setValue(lastUpdate);
+
                 for (int i = 0; i < values.length; i++) {
                     assertThat(values[i]).as("i=%s", i).isGreaterThanOrEqualTo(lastUpdate);
                 }
@@ -83,9 +98,9 @@ class PiggybackOnVolatileReadTest {
 
         var writer = (Runnable) () -> {
             while (!stop.get()) {
-                var update = lastUpdatePlain + 1;
+                var update = (long) LAST_UPDATE_OPAQUE.getOpaque(this) + 1;
                 Arrays.fill(values, update);
-                lastUpdatePlain = update;
+                LAST_UPDATE_OPAQUE.setOpaque(this, update);
             }
         };
 
@@ -97,6 +112,7 @@ class PiggybackOnVolatileReadTest {
 
             assertThat(readerTask).succeedsWithin(5, TimeUnit.SECONDS);
             assertThat(writerTask).succeedsWithin(5, TimeUnit.SECONDS);
+            assertThat(lastUpdateRead.longValue()).isPositive();
         } finally {
             stop.set(true);
         }
