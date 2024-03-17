@@ -102,6 +102,29 @@ public class PrimitivesCmpBenchmark {
         }
     }
 
+    @State(Scope.Benchmark)
+    public static class LongsToCompareAgainstNonZero extends StateTemplate {
+        long[] values;
+
+        @Param("313")
+        long value;
+
+        @Setup
+        public void setup() {
+            values = new long[2 * numPairs];
+
+            for (int i = 0; i < numPairs; i++) {
+                if (rng.nextDouble() >= chanceEqual) {
+                    do {
+                        values[2 * i] = rng.nextLong();
+                    } while (values[2 * i] == 42);
+                } else {
+                    values[2 * i] = 42;
+                }
+            }
+        }
+    }
+
     @Benchmark
     @SuppressWarnings("DuplicatedCode")
     public int compareArbitraryInts(IntsToCompareToEachOther ints) {
@@ -140,8 +163,13 @@ public class PrimitivesCmpBenchmark {
             res += values[i] == 0 ? 1 : 0;
         }
 
-        assertThat((double) res)
-                .isBetween(0.5 * ints.chanceEqual * ints.numPairs, 1.5 * ints.chanceEqual * ints.numPairs);
+        var expectedMin = 0.5 * ints.chanceEqual * ints.numPairs;
+        var expectedMax = 1.5 * ints.chanceEqual * ints.numPairs;
+
+        if (res < expectedMin || res > expectedMax) {
+            throw new AssertionError(STR."expectedMin=\{expectedMin}, expectedMax=\{expectedMax}, res=\{res}");
+        }
+
         return res;
     }
 
@@ -153,6 +181,26 @@ public class PrimitivesCmpBenchmark {
 
         for (int i = 0; i < values.length; i += 2) {
             res += values[i] == 0 ? 1 : 0;
+        }
+
+        var expectedMin = 0.5 * longs.chanceEqual * longs.numPairs;
+        var expectedMax = 1.5 * longs.chanceEqual * longs.numPairs;
+
+        if (res < expectedMin || res > expectedMax) {
+            throw new AssertionError(STR."expectedMin=\{expectedMin}, expectedMax=\{expectedMax}, res=\{res}");
+        }
+
+        return res;
+    }
+
+    @Benchmark
+    @SuppressWarnings("DuplicatedCode")
+    public int compareLongsAgainst42(LongsToCompareAgainstNonZero longs) {
+        var res = 0;
+        var values = longs.values;
+
+        for (int i = 0; i < values.length; i += 2) {
+            res += values[i] == 42 ? 1 : 0;
         }
 
         assertThat((double) res)

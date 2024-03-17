@@ -53,6 +53,11 @@ tasks.withType(JavaExec).configureEach {
     it.jvmArgs += '--enable-preview'
 }
 
+tasks.withType(me.champeau.jmh.JmhBytecodeGeneratorTask).configureEach {
+    jvmArgs.set(["--enable-preview"])
+}
+
 jmh {
-    includes = ["(?i)primitivescmp"]
+    includes = ["(?i)primitivescmp.*LongsAgainstZero"]
+    jvmArgsAppend = ["--enable-preview", "-Xmx500m", "-XX:+UnlockDiagnosticVMOptions", "-XX:CompileCommand=print,*.compareLongsAgainstZero -XX:PrintAssemblyOptions=hsdis-help"]
 }
