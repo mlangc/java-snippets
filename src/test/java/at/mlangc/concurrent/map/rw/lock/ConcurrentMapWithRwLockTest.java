@@ -44,7 +44,6 @@ public class ConcurrentMapWithRwLockTest {
             while (!stop) {
                 runSingleStep(rng);
             }
-
         }
 
         void runSingleStep(Random rng) {
