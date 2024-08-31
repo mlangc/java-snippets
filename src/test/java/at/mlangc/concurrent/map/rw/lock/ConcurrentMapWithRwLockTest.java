@@ -2,41 +2,65 @@ package at.mlangc.concurrent.map.rw.lock;
 
 import org.junit.jupiter.api.Test;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.IntStream;
 
+import static java.lang.System.out;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class ConcurrentMapWithRwLockTest {
     private static final int PARALLELISM = 4;
-    private static final int MAX_ELEMS = 10_000;
-    private static final double SIZE_CHECK_RATIO = 0.001;
+    private static final int MAX_ENTRIES = 10_000;
+    private static final double CONSISTENCY_CHECK_RATIO = 0.01;
+    private static final int RUN_MILLIS = 1000;
 
     @Test
     void sizeShouldStayConsistentWhileHoldingWriteLock() throws InterruptedException {
-        new TestScenario().run();
+        new TestScenarioWithRwLock().run();
     }
 
-    private static class TestScenario {
+    @Test
+    void sizeShouldStayConsistentWhileHavingPermitInLockFreeImpl() throws InterruptedException {
+        new LockFreeTestScenario().run();
+    }
+
+    private static abstract class TestScenarioTemplate {
         private final ConcurrentHashMap<Integer, Integer> concurrentMap = new ConcurrentHashMap<>();
-        private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
         private volatile boolean stop = false;
+        private final LongAdder modifications = new LongAdder();
+        private final LongAdder consistencyChecks = new LongAdder();
+
+        abstract void acquireModificationPermit();
+        abstract void releaseModificationPermit();
+        abstract void acquireConsistencyCheckPermit();
+        abstract void releaseConsistencyCheckPermit();
 
         void run() throws InterruptedException {
             var runLoops = IntStream.range(0, PARALLELISM)
                     .mapToObj(ignore -> CompletableFuture.runAsync(this::runLoop))
                     .toArray(CompletableFuture<?>[]::new);
 
-            Thread.sleep(5_000);
+            Thread.sleep(RUN_MILLIS);
             stop = true;
             assertThat(CompletableFuture.allOf(runLoops)).succeedsWithin(5, TimeUnit.SECONDS);
-            System.out.println("Map after test: size=" + concurrentMap.size() + ", data=" + concurrentMap);
+
+            out.printf("Map after test: size=%s, data=%s%n", concurrentMap.size(), concurrentMap);
+
+            var actualConsistencyCheckRatio = consistencyChecks.doubleValue() / modifications.doubleValue();
+            out.printf(
+                    "modifications=%s, consistencyChecks=%s, configuredConsistencyCheckRatio=%s, actualConsistencyCheckRatio=%s, consistencyCheckRatioDeviation=%s",
+                    modifications.longValue(), consistencyChecks.longValue(),
+                    CONSISTENCY_CHECK_RATIO, actualConsistencyCheckRatio, actualConsistencyCheckRatio / CONSISTENCY_CHECK_RATIO);
+
         }
 
         void runLoop() {
@@ -47,7 +71,7 @@ public class ConcurrentMapWithRwLockTest {
         }
 
         void runSingleStep(Random rng) {
-            if (ThreadLocalRandom.current().nextDouble() < SIZE_CHECK_RATIO) {
+            if (ThreadLocalRandom.current().nextDouble() < CONSISTENCY_CHECK_RATIO) {
                 checkSizeConsistency();
             } else {
                 randomlyModify(rng);
@@ -55,9 +79,9 @@ public class ConcurrentMapWithRwLockTest {
         }
 
         void randomlyModify(Random rng) {
-            var key = rng.nextInt(0, MAX_ELEMS);
+            var key = rng.nextInt(0, MAX_ENTRIES);
 
-            rwLock.readLock().lock();
+            acquireModificationPermit();
             try {
                 if (key % 2 == 0) {
                     concurrentMap.merge(key, 1, Integer::sum);
@@ -65,12 +89,14 @@ public class ConcurrentMapWithRwLockTest {
                     concurrentMap.computeIfPresent(key - 1, (ignore, v) -> v - 1 == 0 ? null : v - 1);
                 }
             } finally {
-                rwLock.readLock().unlock();
+                releaseModificationPermit();
             }
+
+            modifications.increment();
         }
 
         void checkSizeConsistency() {
-            rwLock.writeLock().lock();
+            acquireConsistencyCheckPermit();
             try {
                 var size1 = concurrentMap.size();
                 var size2 = concurrentMap.size();
@@ -82,7 +108,87 @@ public class ConcurrentMapWithRwLockTest {
 
                 assertThat(size1).isEqualTo(size2).isEqualTo(size3);
             } finally {
-                rwLock.writeLock().unlock();
+                releaseConsistencyCheckPermit();
+            }
+
+            consistencyChecks.increment();
+        }
+    }
+
+    private static class TestScenarioWithRwLock extends TestScenarioTemplate {
+        private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
+
+        @Override
+        void acquireModificationPermit() {
+            rwLock.readLock().lock();
+        }
+
+        @Override
+        void releaseModificationPermit() {
+            rwLock.readLock().unlock();
+        }
+
+        @Override
+        void acquireConsistencyCheckPermit() {
+            rwLock.writeLock().lock();
+        }
+
+        @Override
+        void releaseConsistencyCheckPermit() {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    private static class LockFreeTestScenario extends TestScenarioTemplate {
+        static final VarHandle MAP_STATE_VAR_HANDLE;
+
+        static {
+            try {
+                MAP_STATE_VAR_HANDLE = MethodHandles.lookup().findVarHandle(LockFreeTestScenario.class, "mapState", int.class);
+            } catch (NoSuchFieldException | IllegalAccessException e) {
+                throw new AssertionError("Cannot create var handle for mapState", e);
+            }
+        }
+
+        // Used via VAR_HANDLE
+        @SuppressWarnings("unused")
+        private int mapState;
+
+        @Override
+        void acquireModificationPermit() {
+            while (true) {
+                var current = (int) MAP_STATE_VAR_HANDLE.getOpaque(this);
+                if (current >= 0 && MAP_STATE_VAR_HANDLE.weakCompareAndSetPlain(this, current, current + 1)) {
+                    break;
+                }
+            }
+        }
+
+        @Override
+        void releaseModificationPermit() {
+            while (true) {
+                var current = (int) MAP_STATE_VAR_HANDLE.getOpaque(this);
+                if (MAP_STATE_VAR_HANDLE.weakCompareAndSetPlain(this, current, current - 1)) {
+                    break;
+                }
+            }
+        }
+
+        @Override
+        void acquireConsistencyCheckPermit() {
+            while (true) {
+                if (MAP_STATE_VAR_HANDLE.weakCompareAndSetPlain(this, 0, -1)) {
+                    break;
+                }
+            }
+        }
+
+        @Override
+        void releaseConsistencyCheckPermit() {
+            while (true) {
+                if (MAP_STATE_VAR_HANDLE.weakCompareAndSetPlain(this, -1, 0)) {
+                    break;
+                }
             }
         }
     }
