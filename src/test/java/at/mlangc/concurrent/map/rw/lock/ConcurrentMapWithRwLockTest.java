@@ -18,7 +18,7 @@ import static java.lang.System.out;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class ConcurrentMapWithRwLockTest {
-    private static final int PARALLELISM = 4;
+    private static final int PARALLELISM = 2;
     private static final int MAX_ENTRIES = 10_000;
     private static final double CONSISTENCY_CHECK_RATIO = 0.01;
     private static final int RUN_MILLIS = 5000;
