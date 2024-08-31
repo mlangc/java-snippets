@@ -53,7 +53,7 @@ public class ConcurrentMapWithRwLockTest {
             stop = true;
             assertThat(CompletableFuture.allOf(runLoops)).succeedsWithin(5, TimeUnit.SECONDS);
 
-            out.printf("Map after test: size=%s, data=%s%n", concurrentMap.size(), concurrentMap);
+            out.printf("Map size=%s, some data=%s%n", concurrentMap.size(), concurrentMap.entrySet().stream().limit(3).toList());
 
             var actualConsistencyCheckRatio = consistencyChecks.doubleValue() / modifications.doubleValue();
             out.printf(
