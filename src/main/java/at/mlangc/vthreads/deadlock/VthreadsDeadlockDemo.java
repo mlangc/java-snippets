@@ -11,7 +11,7 @@ import static java.lang.System.out;
 
 public class VthreadsDeadlockDemo {
     public static void main() {
-        new VthreadsDeadlockDemo(true, 8, 100).run();
+        new VthreadsDeadlockDemo(true, 2, 100).run();
     }
 
     final Lock lock = new ReentrantLock();
