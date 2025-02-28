@@ -1,8 +1,8 @@
 package at.mlangc.vthreads.deadlock;
 
-import org.apache.commons.lang3.exception.UncheckedInterruptedException;
-
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.IntStream;
@@ -11,27 +11,23 @@ import static java.lang.System.out;
 
 public class VthreadsDeadlockDemo {
     public static void main() {
-        new VthreadsDeadlockDemo(true, 2, 100).run();
+        new VthreadsDeadlockDemo(true, 9, 100).run();
     }
 
     final Lock lock = new ReentrantLock();
     final ExecutorService executor;
-    final int threadsPerCpu;
+    final int numThreads;
     final int sleepMillis;
-    final CountDownLatch ioStarted = new CountDownLatch(1);
 
-    VthreadsDeadlockDemo(boolean useVthreads, int threadsPerCpu, int sleepMillis) {
+    VthreadsDeadlockDemo(boolean useVthreads, int numThreads, int sleepMillis) {
         this.executor = useVthreads ? Executors.newVirtualThreadPerTaskExecutor() : Executors.newThreadPerTaskExecutor(Thread::new);
-        this.threadsPerCpu = threadsPerCpu;
+        this.numThreads = numThreads;
         this.sleepMillis = sleepMillis;
     }
 
     void run() {
-        var numCpus = Runtime.getRuntime().availableProcessors();
-        var numTasks = numCpus * threadsPerCpu;
-
         var ioJob = CompletableFuture.runAsync(this::runIoTask, executor);
-        var syncJobs = IntStream.range(1, numTasks)
+        var syncJobs = IntStream.range(1, numThreads)
                 .mapToObj(id -> CompletableFuture.runAsync(new SynchronizingTask(id), executor))
                 .toArray(CompletableFuture<?>[]::new);
 
@@ -43,7 +39,6 @@ public class VthreadsDeadlockDemo {
         lock.lock();
         try {
             out.println("Running task 0 (IO task)");
-            ioStarted.countDown();
             Thread.sleep(sleepMillis);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -61,13 +56,6 @@ public class VthreadsDeadlockDemo {
 
         @Override
         public void run() {
-            try {
-                ioStarted.await();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new UncheckedInterruptedException(e);
-            }
-
             synchronized (this) {
                 lock.lock();
                 try {
