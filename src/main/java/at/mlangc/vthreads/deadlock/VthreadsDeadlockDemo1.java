@@ -9,9 +9,9 @@ import java.util.stream.IntStream;
 
 import static java.lang.System.out;
 
-public class VthreadsDeadlockDemo {
+public class VthreadsDeadlockDemo1 {
     public static void main() {
-        new VthreadsDeadlockDemo(true, 9, 100).run();
+        new VthreadsDeadlockDemo1(false, 4, 100).run();
     }
 
     final Lock lock = new ReentrantLock();
@@ -19,13 +19,18 @@ public class VthreadsDeadlockDemo {
     final int numThreads;
     final int sleepMillis;
 
-    VthreadsDeadlockDemo(boolean useVthreads, int numThreads, int sleepMillis) {
-        this.executor = useVthreads ? Executors.newVirtualThreadPerTaskExecutor() : Executors.newThreadPerTaskExecutor(Thread::new);
+    VthreadsDeadlockDemo1(boolean useVthreads, int numThreads, int sleepMillis) {
         this.numThreads = numThreads;
         this.sleepMillis = sleepMillis;
+
+        this.executor = useVthreads
+                ? Executors.newVirtualThreadPerTaskExecutor()
+                : Executors.newThreadPerTaskExecutor(Thread.ofPlatform().daemon().factory());
     }
 
     void run() {
+        out.printf("Running demo with %s cores%n", Runtime.getRuntime().availableProcessors());
+
         var ioJob = CompletableFuture.runAsync(this::runIoTask, executor);
         var syncJobs = IntStream.range(1, numThreads)
                 .mapToObj(id -> CompletableFuture.runAsync(new SynchronizingTask(id), executor))
@@ -33,13 +38,15 @@ public class VthreadsDeadlockDemo {
 
         ioJob.join();
         CompletableFuture.allOf(syncJobs).join();
+        out.printf("[%s] All done%n", Thread.currentThread());
     }
 
     void runIoTask() {
         lock.lock();
         try {
-            out.println("Running task 0 (IO task)");
+            out.printf("[%s] Started IO task...%n", Thread.currentThread());
             Thread.sleep(sleepMillis);
+            out.printf("[%s] IO done%n", Thread.currentThread());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } finally {
@@ -56,10 +63,11 @@ public class VthreadsDeadlockDemo {
 
         @Override
         public void run() {
+            out.printf("[%s] Started synchronizing task %s%n", Thread.currentThread(), id);
             synchronized (this) {
                 lock.lock();
                 try {
-                    out.printf("Running task %s%n", id);
+                    out.printf("[%s] Running synchronizing task %s%n", Thread.currentThread(), id);
                 } finally {
                     lock.unlock();
                 }
