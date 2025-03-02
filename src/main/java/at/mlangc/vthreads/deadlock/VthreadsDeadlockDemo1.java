@@ -11,7 +11,7 @@ import static java.lang.System.out;
 
 public class VthreadsDeadlockDemo1 {
     public static void main() {
-        new VthreadsDeadlockDemo1(false, 4, 100).run();
+        new VthreadsDeadlockDemo1(true, availableProcessors() + 1, 100).run();
     }
 
     final Lock lock = new ReentrantLock();
@@ -31,20 +31,20 @@ public class VthreadsDeadlockDemo1 {
     void run() {
         out.printf("Running demo with %s cores%n", Runtime.getRuntime().availableProcessors());
 
-        var ioJob = CompletableFuture.runAsync(this::runIoTask, executor);
+        var blockingJob = CompletableFuture.runAsync(this::runBlockingTask, executor);
         var syncJobs = IntStream.range(1, numThreads)
                 .mapToObj(id -> CompletableFuture.runAsync(new SynchronizingTask(id), executor))
                 .toArray(CompletableFuture<?>[]::new);
 
-        ioJob.join();
+        blockingJob.join();
         CompletableFuture.allOf(syncJobs).join();
         out.printf("[%s] All done%n", Thread.currentThread());
     }
 
-    void runIoTask() {
+    void runBlockingTask() {
         lock.lock();
         try {
-            out.printf("[%s] Started IO task...%n", Thread.currentThread());
+            out.printf("[%s] Started blocking task...%n", Thread.currentThread());
             Thread.sleep(sleepMillis);
             out.printf("[%s] IO done%n", Thread.currentThread());
         } catch (InterruptedException e) {
@@ -73,5 +73,9 @@ public class VthreadsDeadlockDemo1 {
                 }
             }
         }
+    }
+
+    private static int availableProcessors() {
+        return Runtime.getRuntime().availableProcessors();
     }
 }
