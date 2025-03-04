@@ -46,7 +46,7 @@ public class VthreadsDeadlockDemo1 {
         try {
             out.printf("[%s] Started blocking task...%n", Thread.currentThread());
             Thread.sleep(sleepMillis);
-            out.printf("[%s] IO done%n", Thread.currentThread());
+            out.printf("[%s] Blocking task done%n", Thread.currentThread());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } finally {
