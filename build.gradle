@@ -17,6 +17,8 @@ dependencies {
 
     implementation 'org.apache.commons:commons-lang3:_'
     implementation 'com.google.guava:guava:_'
+    testImplementation 'org.awaitility:awaitility:_'
+
 
     implementation 'org.apache.commons:commons-numbers-core:_'
 
@@ -54,5 +56,6 @@ tasks.withType(JavaExec).configureEach {
 }
 
 jmh {
-    includes = ["(?i)gcd.*guava.*|.*"]
+    includes = ["(?i)slotted"]
+    threads = Integer.getInteger("jmhThreads", 1)
 }
