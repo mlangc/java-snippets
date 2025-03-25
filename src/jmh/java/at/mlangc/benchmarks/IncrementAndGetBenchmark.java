@@ -13,19 +13,20 @@ import java.util.concurrent.locks.ReentrantLock;
 @Measurement(iterations = 10, time = 200, timeUnit = TimeUnit.MILLISECONDS)
 @BenchmarkMode(Mode.Throughput)
 @State(Scope.Benchmark)
-public class SynchronizedVsReentrantLock {
+public class IncrementAndGetBenchmark {
     private final Lock lock = new ReentrantLock();
     private final Semaphore semaphore = new Semaphore(1);
     private int counter;
     private final AtomicInteger atomicCounter = new AtomicInteger();
 
     @Benchmark
-    public synchronized int incrementAndGetSynchronized() {
+    @SuppressWarnings("NonAsciiCharacters") // <-- using cyrillic s to get around method name limitation
+    public synchronized int ѕynchronized() {
         return ++counter;
     }
 
     @Benchmark
-    public int incrementAndGetReentrantLock() {
+    public int reentrantLock() {
         lock.lock();
         try {
             return ++counter;
@@ -35,12 +36,12 @@ public class SynchronizedVsReentrantLock {
     }
 
     @Benchmark
-    public int atomicIncrementAndGet() {
+    public int atomic() {
         return atomicCounter.incrementAndGet();
     }
 
     @Benchmark
-    public int incrementAndGetSemaphore() throws InterruptedException {
+    public int semaphore() throws InterruptedException {
         semaphore.acquire();
         try {
             return ++counter;
