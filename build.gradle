@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id "me.champeau.jmh"
+    id "io.morethan.jmhreport"
 }
 
 group = 'org.example'
@@ -56,6 +57,18 @@ tasks.withType(JavaExec).configureEach {
 }
 
 jmh {
-    includes = ["(?i)increment"]
+    includes = [".*"]
     threads = Integer.getInteger("jmhThreads", 1)
+    resultFormat = "JSON"
+}
+
+jmhReport {
+    jmhResultPath = project.file('build/results/jmh/results.json')
+    jmhReportOutput = project.file('build/results/jmh/report')
+}
+
+tasks.jmh.finalizedBy tasks.jmhReport
+
+tasks.jmhReport.doFirst {
+    project.file('build/results/jmh/report').mkdirs()
 }
