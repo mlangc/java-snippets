@@ -29,26 +29,26 @@ public class GcdImpls {
         return a;
     }
 
-static long gcdSteinPositive1(long a, long b) {
-    if (a == 0 || a == b) {
-        return b;
-    } else if (b == 0) {
-        return a;
-    } else if (a % 2 == 0 && b % 2 == 0) {
-        return 2 * gcdSteinPositive1(a / 2, b / 2);
-    } else if (a % 2 == 0) {
-        return gcdSteinPositive1(a / 2, b);
-    } else if (b % 2 == 0) {
-        return gcdSteinPositive1(a, b / 2);
-    } else {
-        // both a and b are odd
-        if (a < b) {
-            return gcdSteinPositive1(a, b - a);
+    static long gcdSteinPositive1(long a, long b) {
+        if (a == 0 || a == b) {
+            return b;
+        } else if (b == 0) {
+            return a;
+        } else if (a % 2 == 0 && b % 2 == 0) {
+            return 2 * gcdSteinPositive1(a / 2, b / 2);
+        } else if (a % 2 == 0) {
+            return gcdSteinPositive1(a / 2, b);
+        } else if (b % 2 == 0) {
+            return gcdSteinPositive1(a, b / 2);
         } else {
-            return gcdSteinPositive1(a - b, b);
+            // both a and b are odd
+            if (a < b) {
+                return gcdSteinPositive1(a, b - a);
+            } else {
+                return gcdSteinPositive1(a - b, b);
+            }
         }
     }
-}
 
     static long gcdSteinPositive2(long a, long b) {
         if (a == 0 || a == b) {
@@ -107,23 +107,24 @@ static long gcdSteinPositive1(long a, long b) {
     }
 
     private static final String GCD_LONG_MIN_ERROR = "GCD would result in -Long.MIN_VALUE which cannot be negated";
-static long gcdStein(long a, long b) {
-    if (a == Long.MIN_VALUE) {
-        if (b == 0 || b == Long.MIN_VALUE) {
-            throw new ArithmeticException(GCD_LONG_MIN_ERROR);
-        }
 
-        return gcdSteinPositive4(abs(Long.MIN_VALUE + abs(b)), abs(b));
-    } else if (b == Long.MIN_VALUE) {
-        if (a == 0) {
-            throw new ArithmeticException(GCD_LONG_MIN_ERROR);
-        }
+    static long gcdStein(long a, long b) {
+        if (a == Long.MIN_VALUE) {
+            if (b == 0 || b == Long.MIN_VALUE) {
+                throw new ArithmeticException(GCD_LONG_MIN_ERROR);
+            }
 
-        return gcdSteinPositive4(abs(a), abs(abs(a) + Long.MIN_VALUE));
-    } else {
-        return gcdSteinPositive4(abs(a), abs(b));
+            return gcdSteinPositive4(abs(Long.MIN_VALUE + abs(b)), abs(b));
+        } else if (b == Long.MIN_VALUE) {
+            if (a == 0) {
+                throw new ArithmeticException(GCD_LONG_MIN_ERROR);
+            }
+
+            return gcdSteinPositive4(abs(a), abs(abs(a) + Long.MIN_VALUE));
+        } else {
+            return gcdSteinPositive4(abs(a), abs(b));
+        }
     }
-}
 
     static long gcdSteinPositive4(long a, long b) {
         if (a == 0 || a == b) {
