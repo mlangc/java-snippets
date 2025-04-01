@@ -60,6 +60,7 @@ jmh {
     includes = [".*"]
     threads = Integer.getInteger("jmhThreads", 1)
     resultFormat = "JSON"
+    profilers = []
 }
 
 jmhReport {
