@@ -6,6 +6,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.TreeSet;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -55,6 +57,50 @@ class SortedLinkedIntsTest {
             var resCi = operation.apply(concurrentInts);
             assertThat(resTs).as("ops=%s", operations.subList(0, i + 1)).isEqualTo(resCi);
         }
+    }
+
+    @Test
+    void addingAndRemovingConcurrentlyWorks() {
+        var linkedInts = new ConcurrentSortedLinkedInts();
+
+        final var elems = 10_000;
+        Runnable addEven = () -> {
+            for (int x = 0; x < elems; x += 2) {
+                assertThat(linkedInts.add(x)).isTrue();
+                assertThat(linkedInts.add(x)).isFalse();
+            }
+        };
+
+        Runnable addOdd = () -> {
+            for (int x = 1; x < elems; x += 2) {
+                assertThat(linkedInts.add(x)).isTrue();
+                assertThat(linkedInts.add(x)).isFalse();
+            }
+        };
+
+        Runnable removeEven = () -> {
+            for (int x = 0; x < elems; x += 2) {
+                assertThat(linkedInts.remove(x)).isTrue();
+                assertThat(linkedInts.remove(x)).isFalse();
+            }
+        };
+
+        Runnable removeOdd = () -> {
+            for (int x = 1; x < elems; x += 2) {
+                assertThat(linkedInts.remove(x)).isTrue();
+                assertThat(linkedInts.remove(x)).isFalse();
+            }
+        };
+
+        var addEvenJob = CompletableFuture.runAsync(addEven);
+        var addOddJob = CompletableFuture.runAsync(addOdd);
+        assertThat(addEvenJob).succeedsWithin(1, TimeUnit.SECONDS);
+        assertThat(addOddJob).succeedsWithin(1, TimeUnit.SECONDS);
+
+        var removeEvenJob = CompletableFuture.runAsync(removeEven);
+        var removeOddJob = CompletableFuture.runAsync(removeOdd);
+        assertThat(removeEvenJob).succeedsWithin(1, TimeUnit.SECONDS);
+        assertThat(removeOddJob).succeedsWithin(1, TimeUnit.SECONDS);
     }
 
     @Provide
