@@ -1,4 +1,4 @@
-package at.mlangc.concurrent;
+package at.mlangc.art.of.multiprocessor.programming;
 
 import com.google.common.base.Preconditions;
 
