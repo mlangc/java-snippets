@@ -1,73 +1,110 @@
 package at.mlangc.art.of.multiprocessor.programming.ch9;
 
+import java.util.concurrent.atomic.AtomicMarkableReference;
+
 class ConcurrentSortedLinkedInts implements SortedLinkedInts {
     private static class Node {
-        int x;
-        Node next;
+        final int x;
+        final AtomicMarkableReference<Node> next;
+
+        Node(int x) {
+            this(x, null);
+        }
+
+        Node(int x, Node next) {
+            this.x = x;
+            this.next = new AtomicMarkableReference<>(next, false);
+        }
     }
 
-    private final Node head = new Node();
+    private final Node head = new Node(0);
 
     @Override
     public boolean add(int x) {
-        var node = find(x);
+        var markHolder = new boolean[1];
 
-        if (node != null && node.x == x) {
-            return false;
+        var last = head;
+        var current = head;
+
+        while (true) {
+            current = skipAndRemoveTillUnmarked(last, markHolder);
+            if (current == null || current.x > x) {
+                var newNode = new Node(x, current);
+                if (last.next.weakCompareAndSet(current, newNode, false, false)) {
+                    return true;
+                } else {
+                    continue;
+                }
+            } else if (current.x == x) {
+                return false;
+            }
+
+            last = current;
         }
+    }
 
-        if (node == null) {
-            node = head;
+    private Node skipAndRemoveTillUnmarked(Node current, boolean[] markHolder) {
+        var current0 = current;
+        Node current1 = null;
+        var skipped = false;
+
+        while (true) {
+            current = current.next.get(markHolder);
+            if (current1 == null) {
+                current1 = current;
+            }
+
+            if (markHolder[0]) {
+                skipped = true;
+            } else {
+                if (skipped && !current0.next.weakCompareAndSet(current1, current, true, false)) {
+                    current = current0;
+                    skipped = false;
+                } else {
+                    return current;
+                }
+            }
         }
-
-        var next = new Node();
-        next.x = x;
-        next.next = node.next;
-        node.next = next;
-        return true;
     }
 
     @Override
     public boolean remove(int x) {
-        var node = head.next;
-        var prev = head;
+        var markHolder = new boolean[1];
 
-        while (node != null) {
-            if (node.x == x) {
-                prev.next = node.next;
-                return true;
-            } else if (node.x > x) {
+        var last = head;
+        var current = head;
+        while (true) {
+            current = skipAndRemoveTillUnmarked(last, markHolder);
+
+            if (current == null || current.x > x) {
                 return false;
+            } else if (current.x == x) {
+                if (last.next.weakCompareAndSet(current, current, false, true)) {
+                    return true;
+                } else {
+                    continue;
+                }
             }
 
-            prev = node;
-            node = node.next;
+            last = current;
         }
-
-        return false;
     }
 
     @Override
     public boolean contains(int x) {
-        var node = find(x);
-        return node != null && node.x == x;
-    }
+        var markHolder = new boolean[1];
+        var current = head;
 
-    private Node find(int x) {
-        var next = head.next;
-        Node prev = null;
+        while ((current = current.next.get(markHolder)) != null) {
+            if (current.x > x) {
+                return false;
+            }
 
-        while (next != null) {
-            if (next.x == x) {
-                return next;
-            } else if (next.x > x) {
-                return prev;
-            } else {
-                prev = next;
-                next = next.next;
+            if (current.x == x) {
+                return !markHolder[0];
             }
         }
 
-        return prev;
+        return false;
     }
 }
