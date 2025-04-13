@@ -22,89 +22,87 @@ class ConcurrentSortedLinkedInts implements SortedLinkedInts {
     @Override
     public boolean add(int x) {
         var markHolder = new boolean[1];
-
-        var last = head;
-        var current = head;
-
         while (true) {
-            current = skipAndRemoveTillUnmarked(last, markHolder);
-            if (current == null || current.x > x) {
-                var newNode = new Node(x, current);
-                if (last.next.weakCompareAndSet(current, newNode, false, false)) {
-                    return true;
-                } else {
-                    continue;
-                }
-            } else if (current.x == x) {
+            var window = findAndRemoveMarked(x, markHolder);
+            if (window.current != null && window.current.x == x) {
                 return false;
             }
 
-            last = current;
+            var newNode = new Node(x, window.current);
+            if (window.last.next.compareAndSet(window.current, newNode, false, false)) {
+                return true;
+            }
         }
     }
 
-    private Node skipAndRemoveTillUnmarked(Node current, boolean[] markHolder) {
-        var current0 = current;
-        Node current1 = null;
-        var skipped = false;
+    private record Window(Node last, Node current) { }
 
-        while (true) {
-            current = current.next.get(markHolder);
-            if (current1 == null) {
-                current1 = current;
-            }
+    private Window findAndRemoveMarked(int x, boolean[] markHolder) {
+        Node last;
+        Node current;
 
-            if (markHolder[0]) {
-                skipped = true;
-            } else {
-                if (skipped && !current0.next.weakCompareAndSet(current1, current, true, false)) {
-                    current = current0;
-                    skipped = false;
+        outer: while (true) {
+            last = head;
+            current = last.next.getReference();
+
+            while (current != null) {
+                var next = current.next.get(markHolder);
+                if (!markHolder[0]) {
+                    if (current.x >= x) {
+                        break;
+                    }
+
+                    last = current;
+                    current = next;
                 } else {
-                    return current;
+                    if (last.next.compareAndSet(current, next, false, false)) {
+                        current = next;
+                    } else {
+                        continue outer;
+                    }
                 }
             }
+
+            break;
         }
+
+        return new Window(last, current);
     }
 
     @Override
     public boolean remove(int x) {
         var markHolder = new boolean[1];
 
-        var last = head;
-        var current = head;
         while (true) {
-            current = skipAndRemoveTillUnmarked(last, markHolder);
-
-            if (current == null || current.x > x) {
+            var window = findAndRemoveMarked(x, markHolder);
+            if (window.current == null || window.current.x != x) {
                 return false;
-            } else if (current.x == x) {
-                if (last.next.weakCompareAndSet(current, current, false, true)) {
-                    return true;
-                } else {
-                    continue;
-                }
             }
 
-            last = current;
+            var next = window.current.next.getReference();
+            if (window.current.next.compareAndSet(next, next, false, true)) {
+                window.last.next.compareAndSet(window.current, next, false, false);
+                return true;
+            }
         }
     }
 
     @Override
     public boolean contains(int x) {
         var markHolder = new boolean[1];
-        var current = head;
+        var current = head.next.get(markHolder);
 
-        while ((current = current.next.get(markHolder)) != null) {
-            if (current.x > x) {
+        while (true) {
+            if (current == null || current.x > x) {
                 return false;
             }
 
+            var next = current.next.get(markHolder);
             if (current.x == x) {
                 return !markHolder[0];
             }
-        }
 
-        return false;
+            current = next;
+        }
     }
 }
