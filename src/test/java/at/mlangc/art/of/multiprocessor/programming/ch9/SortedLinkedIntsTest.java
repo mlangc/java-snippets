@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.function.Supplier;
@@ -151,6 +152,66 @@ class SortedLinkedIntsTest {
         assertThat(allInts)
                 .as(testCase::toString)
                 .allSatisfy(x -> assertThat(linkedInts.contains(x)).isFalse());
+    }
+
+    @Property(tries = 20)
+    void addingAndRemovingShouldLeaveCollectionInConsistentState(
+            @ForAll @IntRange(min = 10, max = 101) int limit,
+            @ForAll @IntRange(min = 2, max = 9) int selector,
+            @ForAll boolean invert
+    ) throws InterruptedException {
+        // Idea:
+        //  * one thread adds numbers in [0, limit)
+        //  * two threads remove numbers in [0, limit) divisible/not divisible by selector
+        //  * after a short delay, the adder thread is stopped
+        //  * after yet another delay, the remover threads are stopped
+        //  * now we can verify, that the collection contains exactly the expected elements
+        var linkedInts = new ConcurrentSortedLinkedInts();
+        AtomicBoolean stopDeleter = new AtomicBoolean();
+        AtomicBoolean stopAdder = new AtomicBoolean();
+        try {
+            Supplier<Runnable> newAdder = () -> () -> {
+                while (!stopAdder.getOpaque()) {
+                    for (int x = 0; x < limit; x++) {
+                        linkedInts.add(x);
+                    }
+                }
+            };
+
+            Supplier<Runnable> newDeleter = () -> () -> {
+                while (!stopDeleter.getOpaque()) {
+                    for (int x = 0; x < limit; x++) {
+                        var r = x % selector;
+                        var shouldRemove = invert == (r != 0);
+                        if (shouldRemove) {
+                            linkedInts.remove(x);
+                        }
+                    }
+                }
+            };
+
+            var adder1 = CompletableFuture.runAsync(newAdder.get());
+            var adder2 = CompletableFuture.runAsync(newAdder.get());
+            var deleter = CompletableFuture.runAsync(newDeleter.get());
+
+            Thread.sleep(10);
+            stopAdder.setOpaque(true);
+            assertThat(adder1).succeedsWithin(1, TimeUnit.SECONDS);
+            assertThat(adder2).succeedsWithin(1, TimeUnit.SECONDS);
+
+            Thread.sleep(10);
+            stopDeleter.setOpaque(true);
+            assertThat(deleter).succeedsWithin(1, TimeUnit.SECONDS);
+
+            for (int x = 0; x < limit; x++) {
+                var r = x % selector;
+                var shouldContain = invert == (r == 0);
+                assertThat(linkedInts.contains(x)).isEqualTo(shouldContain);
+            }
+        } finally {
+            stopAdder.setOpaque(true);
+            stopDeleter.setOpaque(true);
+        }
     }
 
     @Provide
