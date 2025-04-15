@@ -1,4 +1,4 @@
-package at.mlangc.art.of.multiprocessor.programming;
+package at.mlangc.art.of.multiprocessor.programming.ch2;
 
 import org.apache.commons.lang3.exception.UncheckedInterruptedException;
 import org.junit.jupiter.api.AfterEach;

@@ -1,4 +1,4 @@
-package at.mlangc.art.of.multiprocessor.programming;
+package at.mlangc.art.of.multiprocessor.programming.ch2;
 
 import com.google.common.base.Preconditions;
 
