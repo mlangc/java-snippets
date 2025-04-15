@@ -13,7 +13,7 @@ public class ConcurrentUnboundedIntQueue implements IntQueue {
         }
     }
 
-    private final AtomicReference<Node> head = new AtomicReference<>(new Node(0));
+    private final AtomicReference<Node> head = new AtomicReference<>(new Node(-1));
     private final AtomicReference<Node> tail = new AtomicReference<>(head.getPlain());
 
     @Override
