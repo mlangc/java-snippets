@@ -1,10 +1,14 @@
 package at.mlangc.art.of.multiprocessor.programming.ch10;
 
-import org.apache.commons.lang3.exception.UncheckedInterruptedException;
+import at.mlangc.art.of.multiprocessor.programming.TestHelpers;
+import net.jqwik.api.*;
+import net.jqwik.api.constraints.IntRange;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
+import java.util.ArrayDeque;
 import java.util.BitSet;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -24,6 +28,46 @@ class IntQueueTest {
 
         QueueImpl(Supplier<IntQueue> ctor) {
             this.ctor = ctor;
+        }
+    }
+
+    sealed interface Operation {
+
+    }
+
+    record Deq() implements Operation {
+
+    }
+
+    record Enc(int x) implements Operation { }
+
+    private static Arbitrary<Operation> arbitraryOperation() {
+        var arbEnc = Arbitraries.integers().between(0, 9).map(Enc::new);
+        return Arbitraries.oneOf(Arbitraries.just(new Deq()), arbEnc);
+    }
+
+    @Provide
+    static Arbitrary<List<Operation>> arbitraryOperations(
+            @ForAll @IntRange(min = 1, max = 10) int n) {
+        return arbitraryOperation().list().ofSize(n);
+    }
+
+    @Property
+    void shouldBeConsistentWithArrayDequeue(
+            @ForAll("arbitraryOperations") List<Operation> operations,
+            @ForAll QueueImpl impl) {
+        var intQueue = impl.ctor.get();
+        var arrDeque = new ArrayDeque<Integer>();
+        for (Operation operation : operations) {
+            if (operation instanceof Deq) {
+                var res = intQueue.tryDeq();
+                var expected = arrDeque.pollFirst();
+                assertThat(res).isEqualTo(expected);
+
+            } else if (operation instanceof Enc(int x)) {
+                intQueue.enq(x);
+                arrDeque.addLast(x);
+            }
         }
     }
 
@@ -112,7 +156,7 @@ class IntQueueTest {
             }
 
             allEnqueued.countDown();
-            withUncheckedInterrupts(allEnqueued::await);
+            TestHelpers.withUncheckedInterrupts(allEnqueued::await);
 
             while (true) {
                 try {
@@ -144,17 +188,5 @@ class IntQueueTest {
 
         assertThat(seen.cardinality()).isEqualTo(totalItems);
         assertThat(seen.previousSetBit(Integer.MAX_VALUE)).isEqualTo(totalItems - 1);
-    }
-
-    interface InterruptibleRunnable {
-        void run() throws InterruptedException;
-    }
-
-    private static void withUncheckedInterrupts(InterruptibleRunnable op) {
-        try {
-            op.run();
-        } catch (InterruptedException e) {
-            throw new UncheckedInterruptedException(e);
-        }
     }
 }
