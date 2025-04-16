@@ -7,9 +7,8 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class ConcurrentIntStack implements IntStack {
-
-    public static final Duration INITIAL_BACKOFF = Duration.ofMillis(1);
-    public static final Duration BACKOFF_CAP = Duration.ofMillis(500);
+    private static final Duration INITIAL_BACKOFF = Duration.ofMillis(1);
+    private static final Duration BACKOFF_CAP = Duration.ofMillis(500);
 
     private static class Node {
         final int x;

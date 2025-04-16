@@ -1,6 +1,6 @@
 package at.mlangc.art.of.multiprocessor.programming.ch10;
 
-import at.mlangc.art.of.multiprocessor.programming.TestHelpers;
+import at.mlangc.art.of.multiprocessor.programming.ConcurrencyHelpers;
 import net.jqwik.api.*;
 import net.jqwik.api.constraints.IntRange;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -17,6 +17,7 @@ import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
+import static at.mlangc.art.of.multiprocessor.programming.ConcurrencyHelpers.runSilently;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class IntQueueTest {
@@ -156,7 +157,7 @@ class IntQueueTest {
             }
 
             allEnqueued.countDown();
-            TestHelpers.withUncheckedInterrupts(allEnqueued::await);
+            runSilently(allEnqueued::await);
 
             while (true) {
                 try {

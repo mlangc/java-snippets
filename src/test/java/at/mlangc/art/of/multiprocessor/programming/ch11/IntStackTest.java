@@ -15,7 +15,7 @@ import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
-import static at.mlangc.art.of.multiprocessor.programming.TestHelpers.withUncheckedInterrupts;
+import static at.mlangc.art.of.multiprocessor.programming.ConcurrencyHelpers.runSilently;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class IntStackTest {
@@ -102,7 +102,7 @@ class IntStackTest {
                 }
             } while (failedPops < 10);
 
-            withUncheckedInterrupts(pushersDone::await);
+            runSilently(pushersDone::await);
             while ((popped = intStack.tryPop()) != null) {
                 checkAndProcessPopped.accept(popped);
             }
