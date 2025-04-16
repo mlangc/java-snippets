@@ -2,6 +2,9 @@ package at.mlangc.art.of.multiprocessor.programming.ch11;
 
 import at.mlangc.art.of.multiprocessor.programming.ch11.Exchanger.Exchanged;
 import at.mlangc.art.of.multiprocessor.programming.ch11.Exchanger.Response;
+import net.jqwik.api.ForAll;
+import net.jqwik.api.Property;
+import net.jqwik.api.constraints.IntRange;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -19,7 +22,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class ExchangerTest {
     enum ExchangerImpl {
-        LOCK_BASED(LockBasedExchanger::new);
+        LOCK_BASED(LockBasedExchanger::new),
+        LOCK_FREE(LockFreeExchanger::new);
 
         final Supplier<Exchanger> ctor;
 
@@ -61,11 +65,11 @@ class ExchangerTest {
                 .satisfiesOnlyOnce(e -> assertThat(e).isEqualTo(Response.TIMED_OUT));
     }
 
-    @ParameterizedTest
-    @EnumSource
-    void exchangerShouldWorkUnderHighContention(ExchangerImpl impl) {
-        final var parallelism = Runtime.getRuntime().availableProcessors();
-        final var limit = 5000 * parallelism;
+    @Property
+    void exchangerShouldWorkUnderHighContention(
+            @ForAll ExchangerImpl impl,
+            @ForAll @IntRange(min = 2, max = 8) int parallelism) {
+        final var limit = 2500 * parallelism;
         final var exchanger = impl.ctor.get();
 
         AtomicInteger runningExchangers = new AtomicInteger();
@@ -112,5 +116,8 @@ class ExchangerTest {
             assertThat(totalReceived.intersects(localReceived)).isFalse();
             totalReceived.or(localReceived);
         }
+
+        assertThat(totalReceived.isEmpty()).isFalse();
+        assertThat(totalReceived.cardinality() % 2).isZero();
     }
 }
