@@ -8,12 +8,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 @ThreadSafe
-public class EliminationArrayExchanger implements Exchanger {
+public class EliminationArrayIntExchanger implements IntExchanger {
     private final ThreadLocal<RangePolicy> rangePolicy;
-    private final Exchanger[] exchangers;
+    private final IntExchanger[] exchangers;
 
-    public EliminationArrayExchanger(int size, Supplier<Exchanger> exchangerFactory, RangePolicy.Factory policyFactory) {
-        this.exchangers = new Exchanger[size];
+    public EliminationArrayIntExchanger(int size, Supplier<IntExchanger> exchangerFactory, RangePolicy.Factory policyFactory) {
+        this.exchangers = new IntExchanger[size];
         Arrays.setAll(exchangers, ignore -> exchangerFactory.get());
         this.rangePolicy = ThreadLocal.withInitial(() -> policyFactory.create(size));
     }

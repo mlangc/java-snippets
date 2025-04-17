@@ -20,7 +20,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class IntStackTest {
     enum StackImpl {
-        CONCURRENT(ConcurrentIntStack::new);
+        CONCURRENT(ConcurrentIntStack::new),
+        CONCURRENT_WITH_LOCK_BASED_EXCHANGER(() -> new ConcurrentExchangerEnhancedStack(new LockBasedIntExchanger())),
+        CONCURRENT_WITH_LOCK_FREE_EXCHANGER(() -> new ConcurrentExchangerEnhancedStack(new LockFreeIntExchanger())),
+        CONCURRENT_WITH_ELIMINATION_ARRAY(() -> new ConcurrentExchangerEnhancedStack(new EliminationArrayIntExchanger(
+                Runtime.getRuntime().availableProcessors() / 2,
+                LockFreeIntExchanger::new,
+                p -> new EliminationArrayIntExchanger.RangePolicy.Adaptive(1.1f, p)))),
+        CONCURRENT_WITH_JDK_EXCHANGER(() -> new ConcurrentExchangerEnhancedStack(new JavaUtilConcurrentIntExchanger()));
 
         final Supplier<IntStack> ctor;
 
@@ -69,9 +76,9 @@ class IntStackTest {
     @ParameterizedTest
     @EnumSource
     void pushingAndPoppingConcurrentlyShouldWork(StackImpl impl) {
-        final var pushesPerJob = 50_000;
-        final var concurrentPushers = 2;
-        final var concurrentPoppers = 2;
+        final var pushesPerJob = 100_000;
+        final var concurrentPushers = 5;
+        final var concurrentPoppers = 5;
         final var pushesTotal = pushesPerJob * concurrentPushers;
         final var intStack = impl.ctor.get();
 
@@ -89,7 +96,7 @@ class IntStackTest {
             var failedPops = 0;
 
             IntConsumer checkAndProcessPopped = popped -> {
-                assertThat(seen.get(popped)).isFalse();
+                assertThat(seen.get(popped)).as("popped=%s", popped).isFalse();
                 seen.set(popped);
             };
 

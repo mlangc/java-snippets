@@ -3,7 +3,7 @@ package at.mlangc.art.of.multiprocessor.programming.ch11;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-public class LockFreeExchanger implements Exchanger {
+public class LockFreeIntExchanger implements IntExchanger {
     private record State(Thread owner1, Thread owner2, Integer value)  {
 
     }
@@ -32,7 +32,7 @@ public class LockFreeExchanger implements Exchanger {
             } else {
                 Thread.onSpinWait();
 
-                if (++spinsSinceNanoTime >= maxSpinsBeforeNanoTime) {
+                if (currentState.owner2 == null && ++spinsSinceNanoTime >= maxSpinsBeforeNanoTime) {
                     if (System.nanoTime() > deadlineNanos) {
                         if (state.weakCompareAndSetPlain(currentState, null)) {
                             return Response.TIMED_OUT;

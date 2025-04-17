@@ -1,10 +1,11 @@
 package at.mlangc.art.of.multiprocessor.programming.ch11;
 
-import at.mlangc.art.of.multiprocessor.programming.ch11.EliminationArrayExchanger.RangePolicy;
-import at.mlangc.art.of.multiprocessor.programming.ch11.Exchanger.Exchanged;
-import at.mlangc.art.of.multiprocessor.programming.ch11.Exchanger.Response;
+import at.mlangc.art.of.multiprocessor.programming.ch11.EliminationArrayIntExchanger.RangePolicy;
+import at.mlangc.art.of.multiprocessor.programming.ch11.IntExchanger.Exchanged;
+import at.mlangc.art.of.multiprocessor.programming.ch11.IntExchanger.Response;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
+import net.jqwik.api.ShrinkingMode;
 import net.jqwik.api.constraints.IntRange;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -21,28 +22,29 @@ import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class ExchangerTest {
+class IntExchangerTest {
     enum ExchangerImpl {
-        LOCK_BASED(LockBasedExchanger::new),
-        LOCK_FREE(LockFreeExchanger::new),
+        LOCK_BASED(LockBasedIntExchanger::new),
+        LOCK_FREE(LockFreeIntExchanger::new),
+        JAVA_UTIL_CONCURRENT(JavaUtilConcurrentIntExchanger::new),
         ELIMINATION_ARRAY_LOCK_FREE_ADAPTIVE(maxParallelism ->
-                new EliminationArrayExchanger(
+                new EliminationArrayIntExchanger(
                         Math.max(1, maxParallelism / 2),
-                        LockFreeExchanger::new,
+                        LockFreeIntExchanger::new,
                         maxRange -> new RangePolicy.Adaptive(1.00f, maxRange))),
         ELIMINATION_ARRAY_LOCK_FREE_CONSTANT(maxParallelism ->
-                new EliminationArrayExchanger(
+                new EliminationArrayIntExchanger(
                         Math.max(1, maxParallelism / 2),
-                        LockFreeExchanger::new,
+                        LockFreeIntExchanger::new,
                         maxRange -> new RangePolicy.Constant(Math.min(maxRange, 2))));
 
-        final IntFunction<Exchanger> ctor;
+        final IntFunction<IntExchanger> ctor;
 
-        ExchangerImpl(Supplier<Exchanger> ctor) {
+        ExchangerImpl(Supplier<IntExchanger> ctor) {
             this(ignore -> ctor.get());
         }
 
-        ExchangerImpl(IntFunction<Exchanger> ctor) {
+        ExchangerImpl(IntFunction<IntExchanger> ctor) {
             this.ctor = ctor;
         }
     }
@@ -80,15 +82,16 @@ class ExchangerTest {
                 .satisfiesOnlyOnce(e -> assertThat(e).isEqualTo(Response.TIMED_OUT));
     }
 
-    @Property
+    @Property(shrinking = ShrinkingMode.OFF)
     void exchangerShouldWorkUnderHighContention(
             @ForAll ExchangerImpl impl,
-            @ForAll @IntRange(min = 2, max = 8) int parallelism) {
-        final var limit = 2500 * parallelism;
+            @ForAll @IntRange(min = 2, max = 16) int parallelism0) {
+        final var parallelism = Math.min(parallelism0, availableProcessors());
+        final var limit = 25_000 * parallelism;
         final var exchanger = impl.ctor.apply(parallelism);
 
         AtomicInteger runningExchangers = new AtomicInteger();
-        LongSupplier calcTimeoutNanos = () -> (runningExchangers.getOpaque() - 1) * TimeUnit.MILLISECONDS.toNanos(1);
+        LongSupplier calcTimeoutNanos = () -> (runningExchangers.getOpaque() - 1) * TimeUnit.MICROSECONDS.toNanos(1);
 
         IntFunction<Supplier<BitSet>> newExchangerJob = jobId -> () -> {
             runningExchangers.incrementAndGet();
@@ -124,7 +127,7 @@ class ExchangerTest {
 
         assertThat(jobs)
                 .as("impl=%s, parallelism=%s", impl, parallelism)
-                .allSatisfy(f -> assertThat(f).succeedsWithin(1, TimeUnit.SECONDS));
+                .allSatisfy(f -> assertThat(f).succeedsWithin(5, TimeUnit.SECONDS));
 
         var totalReceived = jobs.getFirst().join();
         for (int i = 1; i < jobs.size(); i++) {
@@ -135,5 +138,9 @@ class ExchangerTest {
 
         assertThat(totalReceived.isEmpty()).isFalse();
         assertThat(totalReceived.cardinality() % 2).isZero();
+    }
+
+    private static int availableProcessors() {
+        return Runtime.getRuntime().availableProcessors();
     }
 }

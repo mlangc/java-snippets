@@ -27,10 +27,10 @@ public class ConcurrentIntStack implements IntStack {
         ExponentialBackoff backoff = null;
 
         while (true) {
-            var currentHead = head.get();
-            newHead.next = currentHead;
+            var oldHead = head.getAcquire();
+            newHead.next = oldHead;
 
-            if (head.weakCompareAndSetVolatile(currentHead, newHead)) {
+            if (head.weakCompareAndSetRelease(oldHead, newHead)) {
                 return;
             }
 
@@ -49,7 +49,7 @@ public class ConcurrentIntStack implements IntStack {
             }
 
             var newHead = oldHead.next;
-            if (head.weakCompareAndSetVolatile(oldHead, newHead)) {
+            if (head.weakCompareAndSetRelease(oldHead, newHead)) {
                 return oldHead.x;
             }
 

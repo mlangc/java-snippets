@@ -7,7 +7,7 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class LockBasedExchanger implements Exchanger {
+public class LockBasedIntExchanger implements IntExchanger {
     private final Lock lock = new ReentrantLock(true);
     private final Condition ready = lock.newCondition();
 
