@@ -25,6 +25,7 @@ dependencies {
 
     jmh 'org.openjdk.jmh:jmh-core:_'
     jmh 'org.openjdk.jmh:jmh-generator-annprocess:_'
+    jmh 'org.openjdk.jmh:jmh-generator-bytecode:_'
 }
 
 test {
