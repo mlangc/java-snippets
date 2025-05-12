@@ -18,8 +18,9 @@ dependencies {
 
     implementation 'org.apache.commons:commons-lang3:_'
     implementation 'com.google.guava:guava:_'
+    implementation 'jakarta.annotation:jakarta.annotation-api:_'
+    implementation 'com.google.code.findbugs:jsr305:_'
     testImplementation 'org.awaitility:awaitility:_'
-
 
     implementation 'org.apache.commons:commons-numbers-core:_'
 
@@ -58,10 +59,10 @@ tasks.withType(JavaExec).configureEach {
 }
 
 jmh {
-    includes = [".*"]
+    includes = ["ArrayListIteration.*"]
     threads = Integer.getInteger("jmhThreads", 1)
     resultFormat = "JSON"
-    profilers = []
+    //profilers = ["jfr"]
 }
 
 jmhReport {
