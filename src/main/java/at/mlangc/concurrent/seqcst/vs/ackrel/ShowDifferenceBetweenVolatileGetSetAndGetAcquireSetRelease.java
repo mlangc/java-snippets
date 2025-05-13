@@ -1,4 +1,4 @@
-package at.mlangc.concurrent;
+package at.mlangc.concurrent.seqcst.vs.ackrel;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -9,7 +9,7 @@ public class ShowDifferenceBetweenVolatileGetSetAndGetAcquireSetRelease {
     private volatile boolean stop = false;
     private final LongAdder tries = new LongAdder();
 
-    public static void main() {
+    public static void main(String[] args) {
         new ShowDifferenceBetweenVolatileGetSetAndGetAcquireSetRelease().run();
     }
 

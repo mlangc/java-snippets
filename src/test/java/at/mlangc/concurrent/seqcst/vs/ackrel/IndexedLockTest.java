@@ -1,18 +1,22 @@
-package at.mlangc.art.of.multiprocessor.programming.ch2;
+package at.mlangc.concurrent.seqcst.vs.ackrel;
 
 import org.apache.commons.lang3.exception.UncheckedInterruptedException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.*;
 
-class PetersonLockTest {
-    private final PetersonLock sut = new PetersonLock();
-    private final ExecutorService executor = Executors.newCachedThreadPool(
-            Thread.ofPlatform().name("test-thread:", 0).factory());
+abstract class IndexedLockTest {
+    private final IndexedLock sut = newLock();
+    private final ExecutorService executor = ThreadIndex.newIndexedCachedThreadPool();
+
+    abstract IndexedLock newLock();
 
     @AfterEach
     void afterEach() throws InterruptedException {
@@ -35,8 +39,8 @@ class PetersonLockTest {
     }
 
     @Test
-    void shouldThrowIfMoreThan2ThreadsAreEncountered() {
-        var latch = new CountDownLatch(3);
+    void shouldThrowIfMoreThanThreadLimitThreadsAreEncountered() {
+        var latch = new CountDownLatch(sut.threadLimit() + 1);
 
         Runnable waitForLatchLockUnlock = () -> {
             try {
@@ -50,7 +54,7 @@ class PetersonLockTest {
             }
         };
 
-        var jobs = IntStream.range(0, 3)
+        var jobs = IntStream.range(0, sut.threadLimit() + 1)
                 .mapToObj(ignore -> CompletableFuture.runAsync(waitForLatchLockUnlock, executor))
                 .toList();
 
@@ -85,7 +89,7 @@ class PetersonLockTest {
     private static void doWithThread0(Runnable op) {
         String oldName = Thread.currentThread().getName();
         try {
-            Thread.currentThread().setName("test-thread:0");
+            Thread.currentThread().setName(ThreadIndex.toName(0));
             op.run();
         } finally {
             Thread.currentThread().setName(oldName);
