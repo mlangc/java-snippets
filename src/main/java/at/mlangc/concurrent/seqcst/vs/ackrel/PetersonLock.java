@@ -20,39 +20,24 @@ class PetersonLock extends IndexedLock {
 
     public void lock() {
         var idx = ThreadIndex.current();
+        var otherIdx = 1 - idx;
 
-        setLocked(idx, true);
-        setVictim(idx);
+        memoryOrdering.set(locked, idx, 1);
+        memoryOrdering.set(victim, idx);
 
-        while (getLocked(1 - idx) && getVictim() == idx) {
+        while (memoryOrdering.get(locked, otherIdx) == 1 && memoryOrdering.get(victim) == idx) {
             Thread.onSpinWait();
         }
     }
 
     public void unlock() {
         int idx = ThreadIndex.current();
-        Preconditions.checkState(getLocked(idx));
-        setLocked(idx, false);
+        Preconditions.checkState(memoryOrdering.get(locked, idx) == 1);
+        memoryOrdering.set(locked, idx, 0);
     }
 
     @Override
     int threadLimit() {
         return 2;
-    }
-
-    private boolean getLocked(int i) {
-        return memoryOrdering.read(locked, i) == 1;
-    }
-
-    private void setLocked(int index, boolean value) {
-        memoryOrdering.write(locked, index, value ? 1 : 0);
-    }
-
-    private int getVictim() {
-        return memoryOrdering.read(victim);
-    }
-
-    private void setVictim(int idx) {
-        memoryOrdering.write(victim, idx);
     }
 }

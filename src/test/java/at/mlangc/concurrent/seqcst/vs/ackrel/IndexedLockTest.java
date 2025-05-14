@@ -68,7 +68,7 @@ abstract class IndexedLockTest {
             int value = 0;
         };
 
-        final var incrementsPerThread = 1_000_000;
+        final var incrementsPerThread = 2_000_000 / sut.threadLimit();
         Runnable incrementCounterWithLock = () -> {
             for (int i = 0; i < incrementsPerThread; i++) {
                 sut.lock();
@@ -77,13 +77,12 @@ abstract class IndexedLockTest {
             }
         };
 
-        var job1 = CompletableFuture.runAsync(incrementCounterWithLock, executor);
-        var job2 = CompletableFuture.runAsync(incrementCounterWithLock, executor);
+        var jobs = IntStream.range(0, sut.threadLimit())
+                .mapToObj(ignore -> CompletableFuture.runAsync(incrementCounterWithLock, executor))
+                .toList();
 
-        assertThat(job1).succeedsWithin(1, TimeUnit.SECONDS);
-        assertThat(job2).succeedsWithin(1, TimeUnit.SECONDS);
-
-        assertThat(counter.value).isEqualTo(2 * incrementsPerThread);
+        assertThat(jobs).allSatisfy(job -> assertThat(job).succeedsWithin(2, TimeUnit.SECONDS));
+        assertThat(counter.value).isEqualTo(sut.threadLimit() * incrementsPerThread);
     }
 
     private static void doWithThread0(Runnable op) {
