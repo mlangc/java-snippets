@@ -19,19 +19,8 @@ class ThreadIndex {
         }
     }
 
-    static ExecutorService newIndexedFixedThreadPool(int numThreads, boolean virtual) {
-        return Executors.newFixedThreadPool(
-                numThreads,
-                (virtual ? Thread.ofVirtual() : Thread.ofPlatform().daemon()).name(PREFIX, 0).factory());
-    }
-
-    static ExecutorService newIndexedCachedThreadPool(boolean virtual) {
-        return Executors.newCachedThreadPool(
-                (virtual ? Thread.ofVirtual() : Thread.ofPlatform().daemon()).name(PREFIX, 0).factory());
-    }
-
     static ExecutorService newIndexedCachedThreadPool() {
-        return newIndexedCachedThreadPool(false);
+        return Executors.newCachedThreadPool(Thread.ofPlatform().daemon().name(PREFIX, 0).factory());
     }
 
     static String toName(int index) {
