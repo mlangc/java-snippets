@@ -46,7 +46,7 @@ class DekkersLock extends IndexedLock {
     public void unlock() {
         var idx = ThreadIndex.current();
         var otherIdx = 1 - idx;
-        Preconditions.checkState(memoryOrdering.get(wantsLock, idx) == 1);
+        Preconditions.checkState(memoryOrdering.get(wantsLock, idx) == 1, "Lock not held by thread %s", idx);
 
         memoryOrdering.set(turn, otherIdx);
         memoryOrdering.set(wantsLock, idx, 0);

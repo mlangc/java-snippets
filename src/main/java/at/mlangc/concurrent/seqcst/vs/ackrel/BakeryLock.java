@@ -64,27 +64,7 @@ class BakeryLock extends IndexedLock {
     @Override
     public void unlock() {
         var idx = ThreadIndex.current();
-        Preconditions.checkArgument(memoryOrdering.get(flags, idx) == 1);
+        Preconditions.checkArgument(memoryOrdering.get(flags, idx) == 1, "Lock not held by thread %s", idx);
         memoryOrdering.set(flags, idx, 0);
-    }
-
-    record LabelWithIndex(int label, int index) {
-
-    }
-
-    private LabelWithIndex findMinFlaggedLabel() {
-        var label = Integer.MAX_VALUE;
-        var index = -1;
-        for (int i = 0; i < flags.length(); i++) {
-            if (memoryOrdering.get(flags, i) == 1) {
-                var label0 = memoryOrdering.get(labels, i);
-                if (label > label0 ) {
-                    label = label0;
-                    index = i;
-                }
-            }
-        }
-
-        return index < 0 ? new LabelWithIndex(-1, -1) : new LabelWithIndex(label, index);
     }
 }

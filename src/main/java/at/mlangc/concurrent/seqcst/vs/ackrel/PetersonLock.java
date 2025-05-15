@@ -32,7 +32,7 @@ class PetersonLock extends IndexedLock {
 
     public void unlock() {
         int idx = ThreadIndex.current();
-        Preconditions.checkState(memoryOrdering.get(locked, idx) == 1);
+        Preconditions.checkState(memoryOrdering.get(locked, idx) == 1, "Lock not held by thread %s", idx);
         memoryOrdering.set(locked, idx, 0);
     }
 
