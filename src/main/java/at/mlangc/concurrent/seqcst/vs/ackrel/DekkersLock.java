@@ -11,7 +11,7 @@ class DekkersLock extends IndexedLock {
     private final AtomicInteger turn = new AtomicInteger(0);
 
     DekkersLock() {
-        this(MemoryOrdering.SEQ_CST);
+        this(MemoryOrdering.VOLATILE);
     }
 
     DekkersLock(MemoryOrdering memoryOrdering) {

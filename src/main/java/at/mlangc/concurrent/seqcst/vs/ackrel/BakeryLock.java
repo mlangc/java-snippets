@@ -10,7 +10,7 @@ class BakeryLock extends IndexedLock {
     private final AtomicIntegerArray labels;
 
     BakeryLock(int maxThreads) {
-        this(maxThreads, MemoryOrdering.SEQ_CST);
+        this(maxThreads, MemoryOrdering.VOLATILE);
     }
 
     BakeryLock(int maxThreads, MemoryOrdering memoryOrdering) {

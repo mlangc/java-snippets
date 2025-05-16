@@ -3,6 +3,7 @@ package at.mlangc.concurrent.seqcst.vs.ackrel;
 import org.apache.commons.lang3.exception.UncheckedInterruptedException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -36,6 +37,15 @@ abstract class IndexedLockTest {
     @Test
     void unlockWithoutLockShouldThrow() {
         doWithThread0(() -> assertThatRuntimeException().isThrownBy(sut::unlock));
+    }
+
+    @Test
+    void lockShouldBeReentrant() {
+        assertThatNoException().isThrownBy(() -> doWithThread0(() -> {
+            sut.lock();
+            sut.lock();
+            sut.unlock();
+        }));
     }
 
     @Test
@@ -83,6 +93,31 @@ abstract class IndexedLockTest {
 
         assertThat(jobs).allSatisfy(job -> assertThat(job).succeedsWithin(2, TimeUnit.SECONDS));
         assertThat(counter.value).isEqualTo(sut.threadLimit() * incrementsPerThread);
+    }
+
+    @Test
+    void shouldProtectSharedTestState() {
+        var testState = new TestState();
+
+        final var updatesPerThread = 10_000 / sut.threadLimit();
+        Runnable updateAndCheckWithLock = () -> {
+            for (int i = 0; i < updatesPerThread; i++) {
+                sut.lock();
+                try {
+                    testState.update();
+                    testState.assertConsistent();
+                } finally {
+                    sut.unlock();
+                }
+            }
+        };
+
+        var jobs = IntStream.range(0, sut.threadLimit())
+                .mapToObj(ignore -> CompletableFuture.runAsync(updateAndCheckWithLock, executor))
+                .toList();
+
+        assertThat(jobs).allSatisfy(job -> assertThat(job).succeedsWithin(2, TimeUnit.SECONDS));
+        testState.assertConsistent(updatesPerThread * sut.threadLimit());
     }
 
     private static void doWithThread0(Runnable op) {

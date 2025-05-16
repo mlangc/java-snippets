@@ -11,7 +11,7 @@ class PetersonLock extends IndexedLock {
     private final AtomicIntegerArray locked = new AtomicIntegerArray(2);
 
     PetersonLock() {
-        this(MemoryOrdering.SEQ_CST);
+        this(MemoryOrdering.VOLATILE);
     }
 
     PetersonLock(MemoryOrdering memoryOrdering) {
