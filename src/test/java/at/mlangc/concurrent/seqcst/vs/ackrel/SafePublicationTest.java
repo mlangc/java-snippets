@@ -1,13 +1,14 @@
 package at.mlangc.concurrent.seqcst.vs.ackrel;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -15,45 +16,47 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class SafePublicationTest {
     private final AtomicBoolean stop = new AtomicBoolean(false);
+    private final int[] randomValues = ThreadLocalRandom.current().ints(1024 * 1024, 1, Integer.MAX_VALUE).toArray();
 
-    @ParameterizedTest
-    @EnumSource
-    void objectShouldBePublishedByGetAckOnStoreRel(MemoryOrdering memoryOrdering) {
-        List<CompletableFuture<Void>> jobs = new ArrayList<>();
+    static class SomeClass {
+        int value;
+    }
 
-        for (int i = 0; i < 10_000; i++) {
-            AtomicBoolean ready = new AtomicBoolean(false);
-            var result = new LinkedList<Integer>();
-            var somethingElse = new ArrayList<Integer>();
-            Runnable publishResult = () -> {
-                for (int j = 0; j < 256; j++) {
-                    result.add(42);
+    @Test
+    void objectShouldBePublishedByGetAckOnStoreRel() throws InterruptedException {
+        var objects = new SomeClass[1024];
+
+        var producer = CompletableFuture.runAsync(() -> {
+            var rng = ThreadLocalRandom.current();
+            while (!stop.getOpaque()) {
+                for (int i = 0; i < objects.length; i++) {
+                    if (objects[i] == null) {
+                        var obj = new SomeClass();
+                        obj.value = randomValues[rng.nextInt(randomValues.length)];
+                        objects[i] = obj;
+                    }
                 }
+            }
+        });
 
-                memoryOrdering.set(ready, true);
-
-                for (int j = 0; j < 10; j++) {
-                    somethingElse.add(23);
+        var consumer = CompletableFuture.runAsync(() -> {
+            while (!stop.getOpaque()) {
+                for (int i = 0; i < objects.length; i++) {
+                    var obj = objects[i];
+                    if (obj != null) {
+                        assertThat(obj.value).isPositive();
+                        objects[i] = null;
+                    }
                 }
-            };
+            }
+        });
 
-            Runnable consumeAndCheckResult = () -> {
-                while (!stop.getOpaque() && !memoryOrdering.get(ready)) {
-                    Thread.onSpinWait();
-                }
+        Thread.sleep(100);
 
-                assertThat(result)
-                        .hasSize(256)
-                        .allSatisfy(elem -> assertThat(elem).isEqualTo(42));
+        stop.setOpaque(true);
 
-                assertThat(somethingElse).isNotNull();
-            };
-
-            jobs.add(CompletableFuture.runAsync(publishResult));
-            jobs.add(CompletableFuture.runAsync(consumeAndCheckResult));
-        }
-
-        assertThat(jobs).allSatisfy(job -> assertThat(job).succeedsWithin(1, TimeUnit.SECONDS));
+        assertThat(producer).succeedsWithin(1, TimeUnit.SECONDS);
+        assertThat(consumer).succeedsWithin(1, TimeUnit.SECONDS);
     }
 
     @AfterEach
