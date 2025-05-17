@@ -4,90 +4,37 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 
 enum MemoryOrdering {
-    VOLATILE {
-        @Override
-        public int get(AtomicInteger atomic) {
-            return atomic.get();
-        }
+    VOLATILE, ACK_REL, PLAIN;
 
-        @Override
-        public void set(AtomicInteger atomic, int value) {
-            atomic.set(value);
-        }
+    int get(AtomicInteger atomic) {
+        return switch (this) {
+            case PLAIN -> atomic.getPlain();
+            case ACK_REL -> atomic.getAcquire();
+            case VOLATILE -> atomic.get();
+        };
+    }
 
-        @Override
-        public int get(AtomicIntegerArray atomicArray, int index) {
-            return atomicArray.get(index);
+    void set(AtomicInteger atomic, int value) {
+        switch (this) {
+            case PLAIN -> atomic.setPlain(value);
+            case ACK_REL -> atomic.setRelease(value);
+            case VOLATILE -> atomic.set(value);
         }
+    }
 
-        @Override
-        public void set(AtomicIntegerArray atomicArray, int index, int value) {
-            atomicArray.set(index, value);
-        }
-    }, ACK_REL {
-        @Override
-        public int get(AtomicInteger atomic) {
-            return atomic.getAcquire();
-        }
+    int get(AtomicIntegerArray atomicArray, int index) {
+        return switch (this) {
+            case PLAIN -> atomicArray.getPlain(index);
+            case ACK_REL -> atomicArray.getAcquire(index);
+            case VOLATILE -> atomicArray.get(index);
+        };
+    }
 
-        @Override
-        public void set(AtomicInteger atomic, int value) {
-            atomic.setRelease(value);
+    void set(AtomicIntegerArray atomicArray, int index, int value) {
+        switch (this) {
+            case PLAIN -> atomicArray.setPlain(index, value);
+            case ACK_REL -> atomicArray.setRelease(index, value);
+            case VOLATILE -> atomicArray.set(index, value);
         }
-
-        @Override
-        public int get(AtomicIntegerArray atomicArray, int index) {
-            return atomicArray.getAcquire(index);
-        }
-
-        @Override
-        public void set(AtomicIntegerArray atomicArray, int index, int value) {
-            atomicArray.setRelease(index, value);
-        }
-    }, OPAQUE {
-        @Override
-        int get(AtomicInteger atomic) {
-            return atomic.getOpaque();
-        }
-
-        @Override
-        void set(AtomicInteger atomic, int value) {
-            atomic.setOpaque(value);
-        }
-
-        @Override
-        int get(AtomicIntegerArray atomicArray, int index) {
-            return atomicArray.getOpaque(index);
-        }
-
-        @Override
-        void set(AtomicIntegerArray atomicArray, int index, int value) {
-            atomicArray.setOpaque(index, value);
-        }
-    }, PLAIN {
-        @Override
-        int get(AtomicInteger atomic) {
-            return atomic.getPlain();
-        }
-
-        @Override
-        void set(AtomicInteger atomic, int value) {
-            atomic.setPlain(value);
-        }
-
-        @Override
-        int get(AtomicIntegerArray atomicArray, int index) {
-            return atomicArray.getPlain(index);
-        }
-
-        @Override
-        void set(AtomicIntegerArray atomicArray, int index, int value) {
-            atomicArray.setPlain(index, value);
-        }
-    };
-
-    abstract int get(AtomicInteger atomic);
-    abstract void set(AtomicInteger atomic, int value);
-    abstract int get(AtomicIntegerArray atomicArray, int index);
-    abstract void set(AtomicIntegerArray atomicArray, int index, int value);
+    }
 }
