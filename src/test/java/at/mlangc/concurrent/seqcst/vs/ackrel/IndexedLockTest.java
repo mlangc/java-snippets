@@ -3,7 +3,6 @@ package at.mlangc.concurrent.seqcst.vs.ackrel;
 import org.apache.commons.lang3.exception.UncheckedInterruptedException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
