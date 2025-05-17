@@ -23,6 +23,10 @@ class ThreadIndex {
         return Executors.newCachedThreadPool(Thread.ofPlatform().daemon().name(PREFIX, 0).factory());
     }
 
+    static ExecutorService newIndexedFixedThreadPool(int nThreads) {
+        return Executors.newFixedThreadPool(nThreads, Thread.ofPlatform().daemon().name(PREFIX, 0).factory());
+    }
+
     static String toName(int index) {
         return PREFIX + index;
     }
