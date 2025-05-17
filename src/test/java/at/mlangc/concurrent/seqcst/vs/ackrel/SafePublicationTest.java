@@ -2,11 +2,7 @@ package at.mlangc.concurrent.seqcst.vs.ackrel;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -16,7 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class SafePublicationTest {
     private final AtomicBoolean stop = new AtomicBoolean(false);
-    private final int[] randomValues = ThreadLocalRandom.current().ints(1024 * 1024, 1, Integer.MAX_VALUE).toArray();
+    private final int[] randomValues = ThreadLocalRandom.current().ints(8 * 1024 * 1024, 1, Integer.MAX_VALUE).toArray();
 
     static class SomeClass {
         int value;
@@ -30,11 +26,9 @@ class SafePublicationTest {
             var rng = ThreadLocalRandom.current();
             while (!stop.getOpaque()) {
                 for (int i = 0; i < objects.length; i++) {
-                    if (objects[i] == null) {
-                        var obj = new SomeClass();
-                        obj.value = randomValues[rng.nextInt(randomValues.length)];
-                        objects[i] = obj;
-                    }
+                    var obj = new SomeClass();
+                    obj.value = randomValues[rng.nextInt(randomValues.length)];
+                    objects[i] = obj;
                 }
             }
         });
@@ -45,7 +39,6 @@ class SafePublicationTest {
                     var obj = objects[i];
                     if (obj != null) {
                         assertThat(obj.value).isPositive();
-                        objects[i] = null;
                     }
                 }
             }
