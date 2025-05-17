@@ -4,12 +4,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 
 enum MemoryOrdering {
-    VOLATILE, ACK_REL, PLAIN;
+    VOLATILE, ACQUIRE_RELEASE, PLAIN;
 
     int get(AtomicInteger atomic) {
         return switch (this) {
             case PLAIN -> atomic.getPlain();
-            case ACK_REL -> atomic.getAcquire();
+            case ACQUIRE_RELEASE -> atomic.getAcquire();
             case VOLATILE -> atomic.get();
         };
     }
@@ -17,7 +17,7 @@ enum MemoryOrdering {
     void set(AtomicInteger atomic, int value) {
         switch (this) {
             case PLAIN -> atomic.setPlain(value);
-            case ACK_REL -> atomic.setRelease(value);
+            case ACQUIRE_RELEASE -> atomic.setRelease(value);
             case VOLATILE -> atomic.set(value);
         }
     }
@@ -25,7 +25,7 @@ enum MemoryOrdering {
     int get(AtomicIntegerArray atomicArray, int index) {
         return switch (this) {
             case PLAIN -> atomicArray.getPlain(index);
-            case ACK_REL -> atomicArray.getAcquire(index);
+            case ACQUIRE_RELEASE -> atomicArray.getAcquire(index);
             case VOLATILE -> atomicArray.get(index);
         };
     }
@@ -33,7 +33,7 @@ enum MemoryOrdering {
     void set(AtomicIntegerArray atomicArray, int index, int value) {
         switch (this) {
             case PLAIN -> atomicArray.setPlain(index, value);
-            case ACK_REL -> atomicArray.setRelease(index, value);
+            case ACQUIRE_RELEASE -> atomicArray.setRelease(index, value);
             case VOLATILE -> atomicArray.set(index, value);
         }
     }
