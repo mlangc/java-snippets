@@ -1,12 +1,16 @@
 package at.mlangc.concurrent.seqcst.vs.ackrel;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -18,25 +22,26 @@ class SafePublicationTest {
         int value;
     }
 
-    @Test
-    void objectShouldBePublishedByGetAckOnStoreRel() throws InterruptedException {
-        var objects = new SomeClass[1024];
+    @ParameterizedTest
+    @EnumSource
+    void objectShouldBePublishedByGetAckOnStoreRel(MemoryOrdering memoryOrdering) throws InterruptedException {
+        var objects = new AtomicReferenceArray<SomeClass>(1024);
 
         var producer = CompletableFuture.runAsync(() -> {
             var rng = ThreadLocalRandom.current();
             while (!stop.getOpaque()) {
-                for (int i = 0; i < objects.length; i++) {
+                for (int i = 0; i < objects.length(); i++) {
                     var obj = new SomeClass();
                     obj.value = randomValues[rng.nextInt(randomValues.length)];
-                    objects[i] = obj;
+                    memoryOrdering.set(objects, i, obj);
                 }
             }
         });
 
         var consumer = CompletableFuture.runAsync(() -> {
             while (!stop.getOpaque()) {
-                for (int i = 0; i < objects.length; i++) {
-                    var obj = objects[i];
+                for (int i = 0; i < objects.length(); i++) {
+                    var obj = memoryOrdering.get(objects, i);
                     if (obj != null) {
                         assertThat(obj.value).isPositive();
                     }
@@ -44,8 +49,7 @@ class SafePublicationTest {
             }
         });
 
-        Thread.sleep(100);
-
+        Thread.sleep(500);
         stop.setOpaque(true);
 
         assertThat(producer).succeedsWithin(1, TimeUnit.SECONDS);
