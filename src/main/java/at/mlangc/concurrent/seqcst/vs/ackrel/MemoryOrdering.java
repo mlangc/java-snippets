@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 
-enum MemoryOrdering {
+public enum MemoryOrdering {
     VOLATILE, ACQUIRE_RELEASE, PLAIN;
 
     int get(AtomicInteger atomic) {
