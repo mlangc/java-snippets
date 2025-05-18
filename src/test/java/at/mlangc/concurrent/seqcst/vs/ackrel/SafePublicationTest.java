@@ -3,6 +3,7 @@ package at.mlangc.concurrent.seqcst.vs.ackrel;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -13,6 +14,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
+import java.util.concurrent.atomic.LongAdder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -23,33 +25,37 @@ class SafePublicationTest {
         int value;
     }
 
-    @RepeatedTest(100)
+    @Test
     @EnabledOnOs(architectures = "x86_64")
     void brokenHandOverShouldWorkOnX86() {
         var holder = new Object() {
             SomeClass toBeHandedOver;
         };
 
-        var consumer = CompletableFuture.runAsync(() -> {
-            while (holder.toBeHandedOver == null) {
-                Thread.onSpinWait();
-            }
+        var failures = new LongAdder();
+        for (int repetition = 0; repetition < 1000; repetition++) {
+            var consumer = CompletableFuture.runAsync(() -> {
+                while (holder.toBeHandedOver == null) {
+                    Thread.onSpinWait();
+                }
 
-            assertThat(holder.toBeHandedOver.value).isPositive();
-        });
+                if (holder.toBeHandedOver.value == 0) {
+                    failures.increment();
+                }
+            });
 
-        var producer = CompletableFuture.runAsync(() -> {
-            var obj = new SomeClass();
-            obj.value = expensiveOperationReturningPositiveNumber();
-            holder.toBeHandedOver = obj;
-        });
+            var producer = CompletableFuture.runAsync(() -> {
+                var obj = new SomeClass();
+                obj.value = ThreadLocalRandom.current().nextInt(1, 1000);
+                holder.toBeHandedOver = obj;
+            });
 
-        assertThat(producer).succeedsWithin(1, TimeUnit.SECONDS);
-        assertThat(consumer).succeedsWithin(1, TimeUnit.SECONDS);
-    }
+            assertThat(producer).succeedsWithin(1, TimeUnit.SECONDS);
+            assertThat(consumer).succeedsWithin(1, TimeUnit.SECONDS);
+            holder.toBeHandedOver = null;
+        }
 
-    private static int expensiveOperationReturningPositiveNumber() {
-        return Math.max(1, UUID.randomUUID().hashCode());
+        assertThat(failures).isZero();
     }
 
     @ParameterizedTest
