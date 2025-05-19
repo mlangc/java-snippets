@@ -1,0 +1,77 @@
+package at.mlangc.concurrent.seqcst.vs.ackrel;
+
+import com.google.common.base.Preconditions;
+
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+
+class GetAndSetLock extends IndexedLock {
+    private static final VarHandle LOCKED;
+
+    static {
+        try {
+            LOCKED = MethodHandles.lookup().findVarHandle(GetAndSetLock.class, "locked", long.class);
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
+    private final MemoryOrdering memoryOrdering;
+    private long locked = -1;
+
+    GetAndSetLock() {
+        this(MemoryOrdering.ACQUIRE_RELEASE);
+    }
+
+    GetAndSetLock(MemoryOrdering memoryOrdering) {
+        this.memoryOrdering = memoryOrdering;
+    }
+
+    @Override
+    int threadLimit() {
+        return Integer.MAX_VALUE;
+    }
+
+    @Override
+    public void lock() {
+        while (!tryLock()) {
+            Thread.onSpinWait();
+        }
+    }
+
+    @Override
+    public void unlock() {
+        var threadId = Thread.currentThread().threadId();
+        Preconditions.checkState((long) LOCKED.getOpaque(this) == threadId, "Lock not held by thread %s", threadId);
+
+        switch (memoryOrdering) {
+            case PLAIN -> locked = -1;
+            case ACQUIRE_RELEASE -> LOCKED.setRelease(this, -1);
+            case VOLATILE -> LOCKED.setVolatile(this, -1);
+        }
+    }
+
+    private boolean tryLock() {
+        var threadId = Thread.currentThread().threadId();
+
+        return switch (memoryOrdering) {
+            case VOLATILE -> {
+                var previousOwner = (long) LOCKED.compareAndExchange(this, -1, threadId);
+                yield  previousOwner < 0 || previousOwner == threadId;
+            }
+
+            case ACQUIRE_RELEASE -> {
+                var previousOwner = (long) LOCKED.compareAndExchangeAcquire(this, -1, threadId);
+                yield  previousOwner < 0 || previousOwner == threadId;
+            }
+
+            case PLAIN -> {
+                if (locked == threadId) {
+                    yield true;
+                }
+
+                yield LOCKED.weakCompareAndSetPlain(this, -1, threadId);
+            }
+        };
+    }
+}

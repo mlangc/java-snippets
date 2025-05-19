@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assumptions.assumeThat;
 
 abstract class IndexedLockTest {
     private final IndexedLock sut = newLock();
@@ -49,8 +50,9 @@ abstract class IndexedLockTest {
 
     @Test
     void shouldThrowIfMoreThanThreadLimitThreadsAreEncountered() {
-        var latch = new CountDownLatch(sut.threadLimit() + 1);
+        assumeThat(sut.threadLimit()).isLessThan(Integer.MAX_VALUE);
 
+        var latch = new CountDownLatch(sut.threadLimit() + 1);
         Runnable waitForLatchLockUnlock = () -> {
             try {
                 latch.countDown();
@@ -77,7 +79,7 @@ abstract class IndexedLockTest {
             int value = 0;
         };
 
-        final var incrementsPerThread = 2_000_000 / sut.threadLimit();
+        final var incrementsPerThread = 2_000_000 / maxThreads();
         Runnable incrementCounterWithLock = () -> {
             for (int i = 0; i < incrementsPerThread; i++) {
                 sut.lock();
@@ -86,19 +88,19 @@ abstract class IndexedLockTest {
             }
         };
 
-        var jobs = IntStream.range(0, sut.threadLimit())
+        var jobs = IntStream.range(0, maxThreads())
                 .mapToObj(ignore -> CompletableFuture.runAsync(incrementCounterWithLock, executor))
                 .toList();
 
         assertThat(jobs).allSatisfy(job -> assertThat(job).succeedsWithin(2, TimeUnit.SECONDS));
-        assertThat(counter.value).isEqualTo(sut.threadLimit() * incrementsPerThread);
+        assertThat(counter.value).isEqualTo(maxThreads() * incrementsPerThread);
     }
 
     @Test
     void shouldProtectSharedTestState() {
         var testState = new TestState();
 
-        final var updatesPerThread = 10_000 / sut.threadLimit();
+        final var updatesPerThread = 10_000 / maxThreads();
         Runnable updateAndCheckWithLock = () -> {
             for (int i = 0; i < updatesPerThread; i++) {
                 sut.lock();
@@ -111,12 +113,16 @@ abstract class IndexedLockTest {
             }
         };
 
-        var jobs = IntStream.range(0, sut.threadLimit())
+        var jobs = IntStream.range(0, maxThreads())
                 .mapToObj(ignore -> CompletableFuture.runAsync(updateAndCheckWithLock, executor))
                 .toList();
 
         assertThat(jobs).allSatisfy(job -> assertThat(job).succeedsWithin(2, TimeUnit.SECONDS));
-        testState.assertConsistent(updatesPerThread * sut.threadLimit());
+        testState.assertConsistent(updatesPerThread * maxThreads());
+    }
+
+    private int maxThreads() {
+        return Math.min(8, sut.threadLimit());
     }
 
     private static void doWithThread0(Runnable op) {
