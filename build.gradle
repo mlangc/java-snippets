@@ -60,7 +60,7 @@ tasks.withType(JavaExec).configureEach {
 }
 
 jmh {
-    includes = ["MemoryOrderingBenchmark.*"]
+    includes = ["IndexedLockBenchmark.*"]
     threads = Integer.getInteger("jmhThreads", 1)
     resultFormat = "JSON"
     //profilers = ["jfr"]
