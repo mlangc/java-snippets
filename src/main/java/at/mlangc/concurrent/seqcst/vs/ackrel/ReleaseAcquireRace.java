@@ -1,7 +1,10 @@
 package at.mlangc.concurrent.seqcst.vs.ackrel;
 
+import java.lang.invoke.VarHandle;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import static java.lang.System.out;
 
 class ReleaseAcquireRace {
     final AtomicBoolean started1 = new AtomicBoolean();
@@ -13,6 +16,8 @@ class ReleaseAcquireRace {
     void run1() {
         started1.setRelease(true);
 
+        VarHandle.fullFence();
+
         if (!started2.getAcquire()) {
             first1 = true;
         }
@@ -20,6 +25,8 @@ class ReleaseAcquireRace {
 
     void run2() {
         started2.setRelease(true);
+
+        VarHandle.fullFence();
 
         if (!started1.getAcquire()) {
             first2 = true;
@@ -37,8 +44,12 @@ class ReleaseAcquireRace {
             run2.join();
 
             if (race.first1 && race.first2) {
-                System.out.printf("Both threads won after %s tries%n", tries);
+                out.printf("Both threads won after %s tries%n", tries);
                 break;
+            }
+
+            if (tries % (1 << 20) == 0) {
+                out.printf("Never saw both threads winning after %s tries%n", tries);
             }
         }
     }
