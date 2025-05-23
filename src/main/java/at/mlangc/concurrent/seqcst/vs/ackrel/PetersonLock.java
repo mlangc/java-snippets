@@ -1,43 +1,37 @@
 package at.mlangc.concurrent.seqcst.vs.ackrel;
 
-import com.google.common.base.Preconditions;
-
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 
 class PetersonLock extends IndexedLock {
+    private final AtomicIntegerArray interested = new AtomicIntegerArray(2);
+    private final AtomicInteger turn = new AtomicInteger();
     private final MemoryOrdering memoryOrdering;
-    private final AtomicInteger victim = new AtomicInteger(-1);
-    private final AtomicIntegerArray locked = new AtomicIntegerArray(2);
-
-    PetersonLock() {
-        this(MemoryOrdering.VOLATILE);
-    }
 
     PetersonLock(MemoryOrdering memoryOrdering) {
         this.memoryOrdering = memoryOrdering;
     }
 
+    @Override
+    int threadLimit() {
+        return 2;
+    }
+
+    @Override
     public void lock() {
-        var idx = ThreadIndex.current();
-        var otherIdx = 1 - idx;
+        var myIdx = ThreadIndex.current();
+        var oIdx = 1 - myIdx;
 
-        memoryOrdering.set(locked, idx, 1);
-        memoryOrdering.set(victim, idx);
+        memoryOrdering.set(interested, myIdx, 1);
+        memoryOrdering.set(turn, oIdx);
 
-        while (memoryOrdering.get(locked, otherIdx) == 1 && memoryOrdering.get(victim) == idx) {
+        while (memoryOrdering.get(interested, oIdx) == 1 && memoryOrdering.get(turn) != myIdx) {
             Thread.onSpinWait();
         }
     }
 
-    public void unlock() {
-        int idx = ThreadIndex.current();
-        Preconditions.checkState(memoryOrdering.get(locked, idx) == 1, "Lock not held by thread %s", idx);
-        memoryOrdering.set(locked, idx, 0);
-    }
-
     @Override
-    int threadLimit() {
-        return 2;
+    public void unlock() {
+        memoryOrdering.set(interested, ThreadIndex.current(), 0);
     }
 }

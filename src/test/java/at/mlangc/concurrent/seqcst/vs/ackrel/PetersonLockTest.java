@@ -5,4 +5,14 @@ class PetersonLockTest extends IndexedLockTest {
     IndexedLock newLock() {
         return new PetersonLock(MemoryOrdering.VOLATILE);
     }
+
+    @Override
+    boolean isReentrant() {
+        return false;
+    }
+
+    @Override
+    boolean hasCheckedUnlock() {
+        return false;
+    }
 }
