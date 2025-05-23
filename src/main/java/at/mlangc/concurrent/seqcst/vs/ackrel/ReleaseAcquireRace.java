@@ -1,6 +1,5 @@
 package at.mlangc.concurrent.seqcst.vs.ackrel;
 
-import java.lang.invoke.VarHandle;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -14,21 +13,17 @@ class ReleaseAcquireRace {
     boolean first2;
 
     void run1() {
-        started1.setRelease(true);
+        started1.set(true);
 
-        VarHandle.fullFence();
-
-        if (!started2.getAcquire()) {
+        if (!started2.get()) {
             first1 = true;
         }
     }
 
     void run2() {
-        started2.setRelease(true);
+        started2.set(true);
 
-        VarHandle.fullFence();
-
-        if (!started1.getAcquire()) {
+        if (!started1.get()) {
             first2 = true;
         }
     }

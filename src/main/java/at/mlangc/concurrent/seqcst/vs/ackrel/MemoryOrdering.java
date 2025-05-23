@@ -1,9 +1,6 @@
 package at.mlangc.concurrent.seqcst.vs.ackrel;
 
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicIntegerArray;
-import java.util.concurrent.atomic.AtomicReferenceArray;
+import java.util.concurrent.atomic.*;
 
 public enum MemoryOrdering {
     VOLATILE, ACQUIRE_RELEASE, PLAIN;
@@ -33,6 +30,22 @@ public enum MemoryOrdering {
     }
 
     void set(AtomicIntegerArray atomicArray, int index, int value) {
+        switch (this) {
+            case PLAIN -> atomicArray.setPlain(index, value);
+            case ACQUIRE_RELEASE -> atomicArray.setRelease(index, value);
+            case VOLATILE -> atomicArray.set(index, value);
+        }
+    }
+
+    long get(AtomicLongArray atomicArray, int index) {
+        return switch (this) {
+            case PLAIN -> atomicArray.getPlain(index);
+            case ACQUIRE_RELEASE -> atomicArray.getAcquire(index);
+            case VOLATILE -> atomicArray.get(index);
+        };
+    }
+
+    void set(AtomicLongArray atomicArray, int index, long value) {
         switch (this) {
             case PLAIN -> atomicArray.setPlain(index, value);
             case ACQUIRE_RELEASE -> atomicArray.setRelease(index, value);

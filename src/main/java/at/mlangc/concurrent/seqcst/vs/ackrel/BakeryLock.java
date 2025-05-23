@@ -3,11 +3,12 @@ package at.mlangc.concurrent.seqcst.vs.ackrel;
 import com.google.common.base.Preconditions;
 
 import java.util.concurrent.atomic.AtomicIntegerArray;
+import java.util.concurrent.atomic.AtomicLongArray;
 
 class BakeryLock extends IndexedLock {
     private final MemoryOrdering memoryOrdering;
-    private final AtomicIntegerArray flags;
-    private final AtomicIntegerArray labels;
+    private final AtomicIntegerArray interested;
+    private final AtomicLongArray tickets;
 
     BakeryLock(int maxThreads) {
         this(maxThreads, MemoryOrdering.VOLATILE);
@@ -15,38 +16,38 @@ class BakeryLock extends IndexedLock {
 
     BakeryLock(int maxThreads, MemoryOrdering memoryOrdering) {
         this.memoryOrdering = memoryOrdering;
-        this.flags = new AtomicIntegerArray(maxThreads);
-        this.labels = new AtomicIntegerArray(maxThreads);
+        this.interested = new AtomicIntegerArray(maxThreads);
+        this.tickets = new AtomicLongArray(maxThreads);
     }
 
     @Override
     int threadLimit() {
-        return flags.length();
+        return interested.length();
     }
 
     @Override
     public void lock() {
         var idx = ThreadIndex.current();
 
-        if (memoryOrdering.get(flags, idx) == 1) {
+        if (memoryOrdering.get(interested, idx) == 1) {
             return;
         }
 
-        memoryOrdering.set(flags, idx, 1);
-        var label = 0;
-        for (int i = 0; i < labels.length(); i++) {
-            label = Math.max(label, memoryOrdering.get(labels, i));
+        memoryOrdering.set(interested, idx, 1);
+        var ticket = 0L;
+        for (int i = 0; i < tickets.length(); i++) {
+            ticket = Math.max(ticket, memoryOrdering.get(tickets, i));
         }
-        label++;
+        ticket++;
 
-        memoryOrdering.set(labels, idx, label);
+        memoryOrdering.set(tickets, idx, ticket);
 
         while (true) {
             boolean locked = true;
-            for (int i = 0; i < labels.length(); i++) {
-                if (i != idx && memoryOrdering.get(flags, i) == 1) {
-                    var otherLabel = memoryOrdering.get(labels, i);
-                    if (otherLabel < label || otherLabel == label && i < idx) {
+            for (int i = 0; i < tickets.length(); i++) {
+                if (i != idx && memoryOrdering.get(interested, i) == 1) {
+                    var otherTicket = memoryOrdering.get(tickets, i);
+                    if (otherTicket < ticket || otherTicket == ticket && i < idx) {
                         locked = false;
                         break;
                     }
@@ -64,7 +65,7 @@ class BakeryLock extends IndexedLock {
     @Override
     public void unlock() {
         var idx = ThreadIndex.current();
-        Preconditions.checkArgument(memoryOrdering.get(flags, idx) == 1, "Lock not held by thread %s", idx);
-        memoryOrdering.set(flags, idx, 0);
+        Preconditions.checkArgument(memoryOrdering.get(interested, idx) == 1, "Lock not held by thread %s", idx);
+        memoryOrdering.set(interested, idx, 0);
     }
 }
