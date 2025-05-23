@@ -19,6 +19,14 @@ abstract class IndexedLockTest {
 
     abstract IndexedLock newLock();
 
+    boolean isReentrant() {
+        return true;
+    }
+
+    boolean hasCheckedUnlock() {
+        return true;
+    }
+
     @AfterEach
     void afterEach() throws InterruptedException {
         executor.shutdown();
@@ -36,11 +44,15 @@ abstract class IndexedLockTest {
 
     @Test
     void unlockWithoutLockShouldThrow() {
+        assumeThat(hasCheckedUnlock()).isTrue();
+
         doWithThread0(() -> assertThatRuntimeException().isThrownBy(sut::unlock));
     }
 
     @Test
     void lockShouldBeReentrant() {
+        assumeThat(isReentrant()).isTrue();
+
         assertThatNoException().isThrownBy(() -> doWithThread0(() -> {
             sut.lock();
             sut.lock();

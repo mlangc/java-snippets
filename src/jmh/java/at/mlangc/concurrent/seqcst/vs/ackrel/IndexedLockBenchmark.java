@@ -20,7 +20,7 @@ public class IndexedLockBenchmark {
     public enum LockType {
         BAKERY(() -> new BakeryLock(NUM_THREADS, MemoryOrdering.VOLATILE)),
         DEKKERS(DekkersLock::new),
-        PETERSON(PetersonLock::new),
+        PETERSON(ReentrantPetersonLock::new),
         GET_AND_SET(GetAndSetLock::new);
 
         final Supplier<IndexedLock> ctor;
