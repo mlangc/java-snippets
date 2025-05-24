@@ -1,11 +1,9 @@
 package at.mlangc.concurrent.seqcst.vs.ackrel;
 
-class BakeryLockTest extends IndexedLockTest {
+class TweakablePetersonLockTest extends IndexedLockTest {
     @Override
     IndexedLock newLock() {
-        return new BakeryLock(
-                Math.max(1, Runtime.getRuntime().availableProcessors() - 1),
-                MemoryOrdering.PLAIN);
+        return new TweakablePetersonLock(MemoryOrdering.ACQUIRE_RELEASE, true);
     }
 
     @Override

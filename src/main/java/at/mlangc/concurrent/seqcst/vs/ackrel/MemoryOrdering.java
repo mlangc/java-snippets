@@ -84,4 +84,12 @@ public enum MemoryOrdering {
             case VOLATILE -> atomic.set(value);
         }
     }
+
+    boolean weakCompareAndSet(AtomicInteger atomic, int expectedValue, int newValue) {
+        return switch (this) {
+            case PLAIN -> atomic.weakCompareAndSetPlain(expectedValue, newValue);
+            case ACQUIRE_RELEASE -> atomic.weakCompareAndSetAcquire(expectedValue, newValue);
+            case VOLATILE -> atomic.weakCompareAndSetVolatile(expectedValue, newValue);
+        };
+    }
 }

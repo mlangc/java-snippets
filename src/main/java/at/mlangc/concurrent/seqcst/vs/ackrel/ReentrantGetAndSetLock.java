@@ -5,12 +5,12 @@ import com.google.common.base.Preconditions;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 
-class GetAndSetLock extends IndexedLock {
+class ReentrantGetAndSetLock extends IndexedLock {
     private static final VarHandle LOCKED;
 
     static {
         try {
-            LOCKED = MethodHandles.lookup().findVarHandle(GetAndSetLock.class, "locked", long.class);
+            LOCKED = MethodHandles.lookup().findVarHandle(ReentrantGetAndSetLock.class, "locked", long.class);
         } catch (NoSuchFieldException | IllegalAccessException e) {
             throw new ExceptionInInitializerError(e);
         }
@@ -19,11 +19,11 @@ class GetAndSetLock extends IndexedLock {
     private final MemoryOrdering memoryOrdering;
     private long locked = -1;
 
-    GetAndSetLock() {
+    ReentrantGetAndSetLock() {
         this(MemoryOrdering.ACQUIRE_RELEASE);
     }
 
-    GetAndSetLock(MemoryOrdering memoryOrdering) {
+    ReentrantGetAndSetLock(MemoryOrdering memoryOrdering) {
         this.memoryOrdering = memoryOrdering;
     }
 

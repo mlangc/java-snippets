@@ -1,15 +1,18 @@
 package at.mlangc.concurrent.seqcst.vs.ackrel;
 
+import java.lang.invoke.VarHandle;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 
-class PetersonLock extends IndexedLock {
+class TweakablePetersonLock extends IndexedLock {
     private final MemoryOrdering memoryOrdering;
     private final AtomicIntegerArray interested = new AtomicIntegerArray(2);
     private final AtomicInteger turn = new AtomicInteger();
+    private final boolean useFence;
 
-    PetersonLock(MemoryOrdering memoryOrdering) {
+    TweakablePetersonLock(MemoryOrdering memoryOrdering, boolean useFence) {
         this.memoryOrdering = memoryOrdering;
+        this.useFence = useFence;
     }
 
     @Override
@@ -23,6 +26,7 @@ class PetersonLock extends IndexedLock {
         var oIdx = 1 - myIdx;
 
         memoryOrdering.set(interested, myIdx, 1);
+        if (useFence) VarHandle.fullFence();
         memoryOrdering.set(turn, oIdx);
 
         while (memoryOrdering.get(interested, oIdx) == 1 && memoryOrdering.get(turn) != myIdx) {

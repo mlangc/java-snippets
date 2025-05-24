@@ -13,7 +13,7 @@ class ThreadIndex {
         checkArgument(currentThread.getName().startsWith(PREFIX), "Unexpected thread name '%s'", currentThread.getName());
 
         try {
-            return Integer.parseInt(currentThread.getName().substring(PREFIX.length()));
+            return Integer.parseInt(currentThread.getName(), PREFIX.length(), currentThread.getName().length(), 10);
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Cannot extract thread index from '" + currentThread.getName() + "'", e);
         }
