@@ -2,7 +2,7 @@ package at.mlangc.concurrent.seqcst.vs.ackrel;
 
 import java.util.concurrent.atomic.*;
 
-public enum MemoryOrdering {
+enum MemoryOrdering {
     VOLATILE, ACQUIRE_RELEASE, PLAIN;
 
     int get(AtomicInteger atomic) {

@@ -13,11 +13,6 @@ class PetersonLock extends IndexedLock {
     }
 
     @Override
-    int threadLimit() {
-        return 2;
-    }
-
-    @Override
     public void lock() {
         var myIdx = ThreadIndex.current();
         var oIdx = 1 - myIdx;
@@ -33,5 +28,10 @@ class PetersonLock extends IndexedLock {
     @Override
     public void unlock() {
         memoryOrdering.set(interested, ThreadIndex.current(), 0);
+    }
+
+    @Override
+    int threadLimit() {
+        return 2;
     }
 }
