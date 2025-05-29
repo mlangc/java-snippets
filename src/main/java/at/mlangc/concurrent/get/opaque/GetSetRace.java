@@ -1,35 +1,72 @@
 package at.mlangc.concurrent.get.opaque;
 
 import at.mlangc.concurrent.MemoryOrdering;
-import org.apache.commons.lang3.exception.UncheckedInterruptedException;
 
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Random;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.IntStream;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static java.lang.System.out;
 
 class GetSetRace {
-    public static void main() {
-        final var memoryOrdering = MemoryOrdering.OPAQUE;
-        final var iterations = 4_000_000;
-        final var parallelRuns = 4;
-        final var iterationsPerRun = iterations / parallelRuns;
+    private final MemoryOrdering memoryOrdering;
+    private final AtomicInteger x = new AtomicInteger();
+    private final AtomicInteger y = new AtomicInteger();
+    private final AtomicBoolean stop = new AtomicBoolean();
 
-        var runs = IntStream.range(0, parallelRuns)
-                .mapToObj(ignore -> CompletableFuture.supplyAsync(() -> run(iterationsPerRun, memoryOrdering)))
-                .toList();
+    private final AtomicLong barrier1 = new AtomicLong(0);
+    private final AtomicLong barrier2 = new AtomicLong(0);
 
-        var res = new HashMap<Result, Integer>();
-        for (var run : runs) {
-            run.join().forEach((r, c) -> res.merge(r, c, Integer::sum));
-        }
+    GetSetRace(MemoryOrdering memoryOrdering) {
+        this.memoryOrdering = memoryOrdering;
+    }
 
-        out.printf("Results: %s%n", res);
+    CompletableFuture<Void> startRacer1() {
+        return CompletableFuture.runAsync(() -> {
+            while (!stop.getOpaque()) {
+                awaitBarrier(barrier1, barrier2);
+                var r1 = memoryOrdering.get(y);
+                memoryOrdering.set(x, r1);
+
+                awaitBarrier(barrier1, barrier2);
+                x.set(0);
+            }
+        });
+    }
+
+    CompletableFuture<Void> startRacer2() {
+        return CompletableFuture.runAsync(() -> {
+            while (!stop.getOpaque()) {
+                awaitBarrier(barrier2, barrier1);
+                var r2 = memoryOrdering.get(x);
+                memoryOrdering.set(y, 42);
+
+                if (r2 == 42) {
+                    out.println("Found");
+                    stop.setOpaque(true);
+                }
+
+                awaitBarrier(barrier2, barrier1);
+                y.set(0);
+            }
+        });
+    }
+
+
+    public static void main() throws InterruptedException, ExecutionException, TimeoutException {
+        var race = new GetSetRace(MemoryOrdering.OPAQUE);
+        var racer1 = race.startRacer1();
+        var racer2 = race.startRacer2();
+
+        Thread.sleep(10_000);
+        race.stop.setOpaque(true);
+
+        racer1.get(1, TimeUnit.SECONDS);
+        racer2.get(1, TimeUnit.SECONDS);
     }
 
     private static HashMap<Result, Integer> run(int iterations, MemoryOrdering memoryOrdering) {
@@ -64,27 +101,20 @@ class GetSetRace {
         return results;
     }
 
+    private void awaitBarrier(AtomicLong mine, AtomicLong other) {
+        mine.setOpaque(mine.getPlain() + 1);
+
+        while (!stop.getOpaque() && other.getOpaque() != mine.getPlain()) {
+            Thread.onSpinWait();
+        }
+    }
+
     record Result(int r1, int r2) {}
 
     private static int getYIdx(Random random, int xIdx, int len) {
         while (true) {
             var yIdx = random.nextInt(len);
             if (yIdx != xIdx) return yIdx;
-        }
-    }
-
-    interface RunnableWithCheckedExceptions {
-        void run() throws Exception;
-    }
-
-    static void withUncheckedExceptions(RunnableWithCheckedExceptions op) {
-        try {
-            op.run();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new UncheckedInterruptedException(e);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         }
     }
 }
