@@ -1,5 +1,6 @@
 package at.mlangc.concurrent.seqcst.vs.ackrel;
 
+import at.mlangc.concurrent.MemoryOrdering;
 import com.google.common.base.Preconditions;
 
 import java.util.concurrent.atomic.AtomicIntegerArray;

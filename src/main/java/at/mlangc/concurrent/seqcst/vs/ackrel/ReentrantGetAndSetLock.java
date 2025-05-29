@@ -1,5 +1,6 @@
 package at.mlangc.concurrent.seqcst.vs.ackrel;
 
+import at.mlangc.concurrent.MemoryOrdering;
 import com.google.common.base.Preconditions;
 
 import java.lang.invoke.MethodHandles;
@@ -64,6 +65,8 @@ class ReentrantGetAndSetLock extends IndexedLock {
                 var previousOwner = (long) LOCKED.compareAndExchangeAcquire(this, -1, threadId);
                 yield  previousOwner < 0 || previousOwner == threadId;
             }
+
+            case OPAQUE -> throw new UnsupportedOperationException();
 
             case PLAIN -> {
                 if (locked == threadId) {
