@@ -15,7 +15,7 @@ import static java.lang.System.out;
 
 class GetSetRace {
     private final MemoryOrdering memoryOrdering;
-    private final AtomicInteger[] atomicInts = new AtomicInteger[1024 * 1024];
+    private final AtomicInteger[] atomicInts = new AtomicInteger[16 * 1024 * 1024];
     private final AtomicInteger x;
     private final AtomicInteger y;
     private final AtomicBoolean stop = new AtomicBoolean();
@@ -42,7 +42,7 @@ class GetSetRace {
                 iterations++;
 
                 awaitBarrier(barrier1, barrier2);
-                x.set(0);
+                x.setOpaque(0);
             }
 
             return iterations;
@@ -64,7 +64,7 @@ class GetSetRace {
                 iterations++;
 
                 awaitBarrier(barrier2, barrier1);
-                y.set(0);
+                y.setOpaque(0);
             }
 
             return iterations;
@@ -77,7 +77,7 @@ class GetSetRace {
         var racer1 = race.startRacer1();
         var racer2 = race.startRacer2();
 
-        Thread.sleep(1000);
+        Thread.sleep(10_000);
         race.stop.setOpaque(true);
 
         var iterations1 = racer1.get(1, TimeUnit.SECONDS);
