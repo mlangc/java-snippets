@@ -3,8 +3,6 @@ package at.mlangc.concurrent.get.opaque;
 import at.mlangc.concurrent.MemoryOrdering;
 
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Random;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -14,45 +12,59 @@ import static java.lang.System.out;
 
 class GetSetRace {
     private final MemoryOrdering memoryOrdering;
-    private final AtomicInteger x = new AtomicInteger();
-    private final AtomicInteger y = new AtomicInteger();
+    private final AtomicInteger[] atomicInts = new AtomicInteger[1024 * 1024];
+    private final AtomicInteger x;
+    private final AtomicInteger y;
     private final AtomicBoolean stop = new AtomicBoolean();
 
     private final AtomicLong barrier1 = new AtomicLong(0);
     private final AtomicLong barrier2 = new AtomicLong(0);
 
+    private boolean observedFutureWrite;
+
     GetSetRace(MemoryOrdering memoryOrdering) {
         this.memoryOrdering = memoryOrdering;
+        Arrays.setAll(atomicInts, ignore -> new AtomicInteger());
+        this.x = atomicInts[0];
+        this.y = atomicInts[atomicInts.length - 1];
     }
 
-    CompletableFuture<Void> startRacer1() {
-        return CompletableFuture.runAsync(() -> {
+    CompletableFuture<Long> startRacer1() {
+        return CompletableFuture.supplyAsync(() -> {
+            var iterations = 0L;
             while (!stop.getOpaque()) {
                 awaitBarrier(barrier1, barrier2);
                 var r1 = memoryOrdering.get(y);
                 memoryOrdering.set(x, r1);
+                iterations++;
 
                 awaitBarrier(barrier1, barrier2);
                 x.set(0);
             }
+
+            return iterations;
         });
     }
 
-    CompletableFuture<Void> startRacer2() {
-        return CompletableFuture.runAsync(() -> {
+    CompletableFuture<Long> startRacer2() {
+        return CompletableFuture.supplyAsync(() -> {
+            var iterations = 0L;
             while (!stop.getOpaque()) {
                 awaitBarrier(barrier2, barrier1);
                 var r2 = memoryOrdering.get(x);
                 memoryOrdering.set(y, 42);
 
                 if (r2 == 42) {
-                    out.println("Found");
+                    observedFutureWrite = true;
                     stop.setOpaque(true);
                 }
 
+                iterations++;
                 awaitBarrier(barrier2, barrier1);
                 y.set(0);
             }
+
+            return iterations;
         });
     }
 
@@ -62,59 +74,29 @@ class GetSetRace {
         var racer1 = race.startRacer1();
         var racer2 = race.startRacer2();
 
-        Thread.sleep(10_000);
+        Thread.sleep(1000);
         race.stop.setOpaque(true);
 
-        racer1.get(1, TimeUnit.SECONDS);
-        racer2.get(1, TimeUnit.SECONDS);
-    }
+        var iterations1 = racer1.get(1, TimeUnit.SECONDS);
+        var iterations2 = racer2.get(1, TimeUnit.SECONDS);
+        var prefix = String.format("[iterations=(%s, %s)]", iterations1, iterations2);
 
-    private static HashMap<Result, Integer> run(int iterations, MemoryOrdering memoryOrdering) {
-        var results = new HashMap<Result, Integer>();
-
-        var rng = ThreadLocalRandom.current();
-        var state = new AtomicInteger[1024];
-        Arrays.setAll(state, ignore -> new AtomicInteger());
-        for (int i = 0; i < iterations; i++) {
-            var xIdx = rng.nextInt(state.length);
-            int yIdx = getYIdx(rng, xIdx, state.length);
-            var x = state[xIdx];
-            var y = state[yIdx];
-            x.setPlain(0);
-            y.setPlain(0);
-
-            var job1 = CompletableFuture.supplyAsync(() -> {
-                var r1 = memoryOrdering.get(y);
-                memoryOrdering.set(x, r1);
-                return r1;
-            });
-
-            var job2 = CompletableFuture.supplyAsync(() -> {
-                var r2 = memoryOrdering.get(x);
-                memoryOrdering.set(y, 42);
-                return r2;
-            });
-
-            results.merge(new Result(job1.join(), job2.join()), 1, Integer::sum);
+        if (race.observedFutureWrite) {
+            out.printf("%s Observed effects of future write", prefix);
+        } else {
+            out.printf("%s Effects of future write where not observed", prefix);
         }
-
-        return results;
     }
 
     private void awaitBarrier(AtomicLong mine, AtomicLong other) {
         mine.setOpaque(mine.getPlain() + 1);
 
         while (!stop.getOpaque() && other.getOpaque() != mine.getPlain()) {
+            if (other.getPlain() > mine.getPlain()) {
+                throw new AssertionError();
+            }
+
             Thread.onSpinWait();
-        }
-    }
-
-    record Result(int r1, int r2) {}
-
-    private static int getYIdx(Random random, int xIdx, int len) {
-        while (true) {
-            var yIdx = random.nextInt(len);
-            if (yIdx != xIdx) return yIdx;
         }
     }
 }
