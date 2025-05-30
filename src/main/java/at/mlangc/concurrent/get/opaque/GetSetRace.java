@@ -3,7 +3,10 @@ package at.mlangc.concurrent.get.opaque;
 import at.mlangc.concurrent.MemoryOrdering;
 
 import java.util.Arrays;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -58,8 +61,8 @@ class GetSetRace {
                     observedFutureWrite = true;
                     stop.setOpaque(true);
                 }
-
                 iterations++;
+
                 awaitBarrier(barrier2, barrier1);
                 y.set(0);
             }
@@ -91,11 +94,7 @@ class GetSetRace {
     private void awaitBarrier(AtomicLong mine, AtomicLong other) {
         mine.setOpaque(mine.getPlain() + 1);
 
-        while (!stop.getOpaque() && other.getOpaque() != mine.getPlain()) {
-            if (other.getPlain() > mine.getPlain()) {
-                throw new AssertionError();
-            }
-
+        while (!stop.getOpaque() && other.getOpaque() < mine.getPlain()) {
             Thread.onSpinWait();
         }
     }
