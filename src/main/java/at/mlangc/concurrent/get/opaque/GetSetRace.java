@@ -1,101 +1,129 @@
 package at.mlangc.concurrent.get.opaque;
 
 import at.mlangc.concurrent.MemoryOrdering;
+import org.apache.commons.lang3.exception.UncheckedInterruptedException;
 
-import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicIntegerArray;
+import java.util.concurrent.atomic.LongAdder;
+import java.util.function.Supplier;
+import java.util.stream.IntStream;
 
 import static java.lang.System.out;
 
-class GetSetRace {
+class GetSetRace implements AutoCloseable {
     private final MemoryOrdering memoryOrdering;
-    private final AtomicInteger[] atomicInts = new AtomicInteger[16 * 1024 * 1024];
-    private final AtomicInteger x;
-    private final AtomicInteger y;
-    private final AtomicBoolean stop = new AtomicBoolean();
+    private final LongAdder failedAttempts = new LongAdder();
+    private final ExecutorService virtualThreadsExecutor = Executors.newVirtualThreadPerTaskExecutor();
+    private final AtomicBoolean done = new AtomicBoolean();
+    private final AtomicBoolean futureWriteObserved = new AtomicBoolean();
 
-    private final AtomicLong barrier1 = new AtomicLong(0);
-    private final AtomicLong barrier2 = new AtomicLong(0);
+    @Override
+    public void close() throws InterruptedException {
+        virtualThreadsExecutor.shutdown();
+        if (!virtualThreadsExecutor.awaitTermination(1, TimeUnit.SECONDS)) {
+            throw new AssertionError("Termination timed out");
+        }
+    }
 
-    private boolean observedFutureWrite;
+    class SingleRace {
+        private final AtomicIntegerArray ints = new AtomicIntegerArray(10 * 1024 * 1024);
+
+        int getX() {
+            return memoryOrdering.get(ints, 0);
+        }
+
+        void setX(int value) {
+            memoryOrdering.set(ints, 0, value);
+        }
+
+        void resetXY() {
+            ints.setPlain(0, 0);
+            ints.setPlain(ints.length() - 1, 0);
+        }
+
+        int getY() {
+            return memoryOrdering.get(ints, ints.length() - 1);
+        }
+
+        void setY(int value) {
+            memoryOrdering.set(ints, ints.length() - 1, value);
+        }
+
+        void tryObserveFutureWrite(int maxTries) {
+            for (int tries = 1; tries <= maxTries && !done.getOpaque(); tries++) {
+                if (tryObserveFutureWrite()) {
+                    futureWriteObserved.setOpaque(true);
+                    return;
+                } else {
+                    failedAttempts.increment();
+                }
+            }
+        }
+
+        boolean tryObserveFutureWrite() {
+            Runnable racer1 = () -> {
+                var r1 = getY();
+                setX(r1);
+            };
+
+            Supplier<Boolean> racer2 = () -> {
+                var r2 = getX();
+                setY(42);
+                return r2 == 42;
+            };
+
+            resetXY();
+            var job1 = CompletableFuture.runAsync(racer1);
+            var job2 = CompletableFuture.supplyAsync(racer2);
+
+            job1.join();
+            return job2.join();
+        }
+    }
+
+    public static void main(String[] args) throws InterruptedException {
+        try (var race = new GetSetRace(MemoryOrdering.PLAIN)) {
+            var triesPerTask = 10_000_000;
+            var numTasks = 100;
+
+            CompletableFuture.allOf(
+                    IntStream.range(0, numTasks)
+                            .mapToObj(ignore -> CompletableFuture.runAsync(() -> race.new SingleRace().tryObserveFutureWrite(triesPerTask)))
+                            .toArray(CompletableFuture<?>[]::new)
+            ).join();
+
+            if (race.futureWriteObserved.getOpaque()) {
+                out.printf("Observed future write after approximately %s attempts%n", race.failedAttempts.longValue());
+            } else {
+                out.printf("Did not observe future write after %s attempts%n", race.failedAttempts.longValue());
+            }
+        }
+    }
 
     GetSetRace(MemoryOrdering memoryOrdering) {
         this.memoryOrdering = memoryOrdering;
-        Arrays.setAll(atomicInts, ignore -> new AtomicInteger());
-        this.x = atomicInts[0];
-        this.y = atomicInts[atomicInts.length - 1];
-    }
 
-    CompletableFuture<Long> startRacer1() {
-        return CompletableFuture.supplyAsync(() -> {
-            var iterations = 0L;
-            while (!stop.getOpaque()) {
-                awaitBarrier(barrier1, barrier2);
-                var r1 = memoryOrdering.get(y);
-                memoryOrdering.set(x, r1);
-                iterations++;
-
-                awaitBarrier(barrier1, barrier2);
-                x.setOpaque(0);
-            }
-
-            return iterations;
-        });
-    }
-
-    CompletableFuture<Long> startRacer2() {
-        return CompletableFuture.supplyAsync(() -> {
-            var iterations = 0L;
-            while (!stop.getOpaque()) {
-                awaitBarrier(barrier2, barrier1);
-                var r2 = memoryOrdering.get(x);
-                memoryOrdering.set(y, 42);
-
-                if (r2 == 42) {
-                    observedFutureWrite = true;
-                    stop.setOpaque(true);
+        Thread.ofVirtual().start(() -> {
+            var lastFailedAttempts = failedAttempts.longValue();
+            while (!done.getOpaque()) {
+                try {
+                    Thread.sleep(1000);
+                    var currentFailedAttempts = failedAttempts.longValue();
+                    if (lastFailedAttempts != currentFailedAttempts) {
+                        out.printf("%s failed attempts so far%n", currentFailedAttempts);
+                        lastFailedAttempts = currentFailedAttempts;
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new UncheckedInterruptedException(e);
                 }
-                iterations++;
-
-                awaitBarrier(barrier2, barrier1);
-                y.setOpaque(0);
             }
-
-            return iterations;
         });
     }
 
-
-    public static void main() throws InterruptedException, ExecutionException, TimeoutException {
-        var race = new GetSetRace(MemoryOrdering.OPAQUE);
-        var racer1 = race.startRacer1();
-        var racer2 = race.startRacer2();
-
-        Thread.sleep(10_000);
-        race.stop.setOpaque(true);
-
-        var iterations1 = racer1.get(1, TimeUnit.SECONDS);
-        var iterations2 = racer2.get(1, TimeUnit.SECONDS);
-        var prefix = String.format("[iterations=(%s, %s)]", iterations1, iterations2);
-
-        if (race.observedFutureWrite) {
-            out.printf("%s Observed effects of future write", prefix);
-        } else {
-            out.printf("%s Effects of future write where not observed", prefix);
-        }
-    }
-
-    private void awaitBarrier(AtomicLong mine, AtomicLong other) {
-        mine.setOpaque(mine.getPlain() + 1);
-
-        while (!stop.getOpaque() && other.getOpaque() < mine.getPlain()) {
-            Thread.onSpinWait();
-        }
-    }
 }
