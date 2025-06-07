@@ -3,10 +3,7 @@ package at.mlangc.concurrent.get.opaque;
 import at.mlangc.concurrent.MemoryOrdering;
 import org.apache.commons.lang3.exception.UncheckedInterruptedException;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 import java.util.concurrent.atomic.LongAdder;
@@ -67,11 +64,17 @@ class GetSetRace implements AutoCloseable {
 
         boolean tryObserveFutureWrite() {
             Runnable racer1 = () -> {
+                for (int i = 0; i < ThreadLocalRandom.current().nextInt(250); i++) {
+                    Thread.onSpinWait();
+                }
+
                 var r1 = getY();
                 setX(r1);
             };
 
             Supplier<Boolean> racer2 = () -> {
+                ints.setOpaque(ints.length() - 2, ints.getPlain(ints.length() - 2) + 1);
+
                 var r2 = getX();
                 setY(42);
                 return r2 == 42;
@@ -87,8 +90,8 @@ class GetSetRace implements AutoCloseable {
     }
 
     public static void main(String[] args) throws InterruptedException {
-        try (var race = new GetSetRace(MemoryOrdering.PLAIN)) {
-            var triesPerTask = 10_000_000;
+        try (var race = new GetSetRace(MemoryOrdering.OPAQUE)) {
+            var triesPerTask = 1_000_000;
             var numTasks = 100;
 
             CompletableFuture.allOf(
@@ -112,7 +115,7 @@ class GetSetRace implements AutoCloseable {
             var lastFailedAttempts = failedAttempts.longValue();
             while (!done.getOpaque()) {
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(5000);
                     var currentFailedAttempts = failedAttempts.longValue();
                     if (lastFailedAttempts != currentFailedAttempts) {
                         out.printf("%s failed attempts so far%n", currentFailedAttempts);
