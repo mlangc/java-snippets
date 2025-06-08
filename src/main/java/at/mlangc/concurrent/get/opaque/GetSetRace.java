@@ -29,26 +29,40 @@ class GetSetRace implements AutoCloseable {
 
     class SingleRace {
         private final AtomicIntegerArray ints = new AtomicIntegerArray(10 * 1024 * 1024);
+        private final int ix;
+        private final int iy;
+
+        SingleRace() {
+            var rng = ThreadLocalRandom.current();
+            this.ix = rng.nextInt(ints.length());
+
+            var tmpIy = rng.nextInt(ints.length());
+            while (tmpIy == ix) {
+                tmpIy = rng.nextInt(ints.length());
+            }
+
+            this.iy = tmpIy;
+        }
 
         int getX() {
-            return memoryOrdering.get(ints, 0);
+            return memoryOrdering.get(ints, ix);
         }
 
         void setX(int value) {
-            memoryOrdering.set(ints, 0, value);
+            memoryOrdering.set(ints, ix, value);
         }
 
         void resetXY() {
-            ints.setPlain(0, 0);
-            ints.setPlain(ints.length() - 1, 0);
+            ints.setPlain(ix, 0);
+            ints.setPlain(iy, 0);
         }
 
         int getY() {
-            return memoryOrdering.get(ints, ints.length() - 1);
+            return memoryOrdering.get(ints, iy);
         }
 
         void setY(int value) {
-            memoryOrdering.set(ints, ints.length() - 1, value);
+            memoryOrdering.set(ints, iy, value);
         }
 
         void tryObserveFutureWrite(int maxTries) {
@@ -81,8 +95,8 @@ class GetSetRace implements AutoCloseable {
             };
 
             resetXY();
-            var job1 = CompletableFuture.runAsync(racer1);
             var job2 = CompletableFuture.supplyAsync(racer2);
+            var job1 = CompletableFuture.runAsync(racer1);
 
             job1.join();
             return job2.join();
