@@ -3,14 +3,17 @@ package at.mlangc.concurrent.get.opaque;
 import at.mlangc.concurrent.MemoryOrdering;
 import org.apache.commons.lang3.exception.UncheckedInterruptedException;
 
+import java.util.Locale;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.concurrent.locks.LockSupport;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 import static java.lang.System.out;
+import static java.util.concurrent.CompletableFuture.delayedExecutor;
 
 class GetSetRace implements AutoCloseable {
     private final MemoryOrdering memoryOrdering;
@@ -29,11 +32,10 @@ class GetSetRace implements AutoCloseable {
 
     class SingleRace {
         private final AtomicIntegerArray ints = new AtomicIntegerArray(10 * 1024 * 1024);
-        private final int ix;
-        private final int iy;
+        private int ix;
+        private int iy;
 
-        SingleRace() {
-            var rng = ThreadLocalRandom.current();
+        private void assignIxIy(ThreadLocalRandom rng) {
             this.ix = rng.nextInt(ints.length());
 
             var tmpIy = rng.nextInt(ints.length());
@@ -83,23 +85,27 @@ class GetSetRace implements AutoCloseable {
             };
 
             Supplier<Boolean> racer2 = () -> {
-                var r2 = getX();
                 setY(42);
+                var r2 = getX();
                 return r2 == 42;
             };
 
-            resetXY();
-            var job2 = CompletableFuture.supplyAsync(racer2);
-            var job1 = CompletableFuture.runAsync(racer1);
+            var rng = ThreadLocalRandom.current();
+            assignIxIy(rng);
+            var job1 = CompletableFuture.runAsync(racer1, delayedExecutor(rng.nextInt(10000), TimeUnit.NANOSECONDS));
+            var job2 = CompletableFuture.supplyAsync(racer2, delayedExecutor(rng.nextInt(10000), TimeUnit.NANOSECONDS));
 
             job1.join();
-            return job2.join();
+            var res = job2.join();
+            resetXY();
+            return res;
         }
     }
 
+
     public static void main(String[] args) throws InterruptedException {
         try (var race = new GetSetRace(MemoryOrdering.OPAQUE)) {
-            var triesPerTask = 1_000_000;
+            var triesPerTask = 100_000_000;
             var numTasks = 100;
 
             CompletableFuture.allOf(
