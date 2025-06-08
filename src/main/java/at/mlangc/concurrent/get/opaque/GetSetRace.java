@@ -3,12 +3,10 @@ package at.mlangc.concurrent.get.opaque;
 import at.mlangc.concurrent.MemoryOrdering;
 import org.apache.commons.lang3.exception.UncheckedInterruptedException;
 
-import java.util.Locale;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.concurrent.locks.LockSupport;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
@@ -19,13 +17,20 @@ class GetSetRace implements AutoCloseable {
     private final MemoryOrdering memoryOrdering;
     private final LongAdder failedAttempts = new LongAdder();
     private final ExecutorService virtualThreadsExecutor = Executors.newVirtualThreadPerTaskExecutor();
+    private final ExecutorService racingTasksExecutor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 4);
     private final AtomicBoolean done = new AtomicBoolean();
     private final AtomicBoolean futureWriteObserved = new AtomicBoolean();
 
     @Override
     public void close() throws InterruptedException {
         virtualThreadsExecutor.shutdown();
+        racingTasksExecutor.shutdown();
+
         if (!virtualThreadsExecutor.awaitTermination(1, TimeUnit.SECONDS)) {
+            throw new AssertionError("Termination timed out");
+        }
+
+        if (!racingTasksExecutor.awaitTermination(1, TimeUnit.SECONDS)) {
             throw new AssertionError("Termination timed out");
         }
     }
@@ -68,8 +73,9 @@ class GetSetRace implements AutoCloseable {
         }
 
         void tryObserveFutureWrite(int maxTries) {
+            var rng = ThreadLocalRandom.current();
             for (int tries = 1; tries <= maxTries && !done.getOpaque(); tries++) {
-                if (tryObserveFutureWrite()) {
+                if (tryObserveFutureWrite(rng)) {
                     futureWriteObserved.setOpaque(true);
                     return;
                 } else {
@@ -78,7 +84,7 @@ class GetSetRace implements AutoCloseable {
             }
         }
 
-        boolean tryObserveFutureWrite() {
+        boolean tryObserveFutureWrite(ThreadLocalRandom rng) {
             Runnable racer1 = () -> {
                 var r1 = getY();
                 setX(r1);
@@ -90,15 +96,18 @@ class GetSetRace implements AutoCloseable {
                 return r2 == 42;
             };
 
-            var rng = ThreadLocalRandom.current();
             assignIxIy(rng);
-            var job1 = CompletableFuture.runAsync(racer1, delayedExecutor(rng.nextInt(10000), TimeUnit.NANOSECONDS));
-            var job2 = CompletableFuture.supplyAsync(racer2, delayedExecutor(rng.nextInt(10000), TimeUnit.NANOSECONDS));
+            var job1 = CompletableFuture.runAsync(racer1, randomlyDelayedExecutor(rng));
+            var job2 = CompletableFuture.supplyAsync(racer2, randomlyDelayedExecutor(rng));
 
             job1.join();
             var res = job2.join();
             resetXY();
             return res;
+        }
+
+        private Executor randomlyDelayedExecutor(ThreadLocalRandom rng) {
+            return delayedExecutor(rng.nextInt(10_000), TimeUnit.NANOSECONDS, racingTasksExecutor);
         }
     }
 
