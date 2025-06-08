@@ -78,17 +78,11 @@ class GetSetRace implements AutoCloseable {
 
         boolean tryObserveFutureWrite() {
             Runnable racer1 = () -> {
-                for (int i = 0; i < ThreadLocalRandom.current().nextInt(250); i++) {
-                    Thread.onSpinWait();
-                }
-
                 var r1 = getY();
                 setX(r1);
             };
 
             Supplier<Boolean> racer2 = () -> {
-                ints.setOpaque(ints.length() - 2, ints.getPlain(ints.length() - 2) + 1);
-
                 var r2 = getX();
                 setY(42);
                 return r2 == 42;
