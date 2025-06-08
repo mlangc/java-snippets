@@ -77,6 +77,7 @@ class GetSetRace implements AutoCloseable {
             for (int tries = 1; tries <= maxTries && !done.getOpaque(); tries++) {
                 if (tryObserveFutureWrite(rng)) {
                     futureWriteObserved.setOpaque(true);
+                    done.setOpaque(true);
                     return;
                 } else {
                     failedAttempts.increment();
