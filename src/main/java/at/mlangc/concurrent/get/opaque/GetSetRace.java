@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.System.out;
 import static java.util.concurrent.CompletableFuture.delayedExecutor;
 
@@ -20,6 +21,15 @@ class GetSetRace implements AutoCloseable {
     private final ExecutorService racingTasksExecutor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 4);
     private final AtomicBoolean done = new AtomicBoolean();
     private final AtomicBoolean futureWriteObserved = new AtomicBoolean();
+    private final AtomicIntegerArray workspace;
+    private final int parallelism;
+    private final int indicesPerSingleRace;
+
+    public static void main(String[] args) throws InterruptedException {
+        try (var race = new GetSetRace(100_000_000, 100, MemoryOrdering.OPAQUE)) {
+            race.run();
+        }
+    }
 
     @Override
     public void close() throws InterruptedException {
@@ -36,40 +46,45 @@ class GetSetRace implements AutoCloseable {
     }
 
     class SingleRace {
-        private final AtomicIntegerArray ints = new AtomicIntegerArray(10 * 1024 * 1024);
+        private final int id;
         private int ix;
         private int iy;
 
-        private void assignIxIy(ThreadLocalRandom rng) {
-            this.ix = rng.nextInt(ints.length());
+        SingleRace(int id) {
+            this.id = id;
+        }
 
-            var tmpIy = rng.nextInt(ints.length());
+        private void assignIxIy(ThreadLocalRandom rng) {
+            var tmpIx = rng.nextInt(indicesPerSingleRace);
+
+            var tmpIy = rng.nextInt(indicesPerSingleRace);
             while (tmpIy == ix) {
-                tmpIy = rng.nextInt(ints.length());
+                tmpIy = rng.nextInt(indicesPerSingleRace);
             }
 
-            this.iy = tmpIy;
+            this.ix = id + tmpIx * parallelism;
+            this.iy = id + tmpIy * parallelism;
         }
 
         int getX() {
-            return memoryOrdering.get(ints, ix);
+            return memoryOrdering.get(workspace, ix);
         }
 
         void setX(int value) {
-            memoryOrdering.set(ints, ix, value);
+            memoryOrdering.set(workspace, ix, value);
         }
 
         void resetXY() {
-            ints.setPlain(ix, 0);
-            ints.setPlain(iy, 0);
+            workspace.setPlain(ix, 0);
+            workspace.setPlain(iy, 0);
         }
 
         int getY() {
-            return memoryOrdering.get(ints, iy);
+            return memoryOrdering.get(workspace, iy);
         }
 
         void setY(int value) {
-            memoryOrdering.set(ints, iy, value);
+            memoryOrdering.set(workspace, iy, value);
         }
 
         void tryObserveFutureWrite(int maxTries) {
@@ -92,8 +107,8 @@ class GetSetRace implements AutoCloseable {
             };
 
             Supplier<Boolean> racer2 = () -> {
-                setY(42);
                 var r2 = getX();
+                setY(42);
                 return r2 == 42;
             };
 
@@ -112,28 +127,13 @@ class GetSetRace implements AutoCloseable {
         }
     }
 
+    GetSetRace(int workspaceSize, int parallelism, MemoryOrdering memoryOrdering) {
+        checkArgument(workspaceSize % parallelism == 0);
 
-    public static void main(String[] args) throws InterruptedException {
-        try (var race = new GetSetRace(MemoryOrdering.OPAQUE)) {
-            var triesPerTask = 100_000_000;
-            var numTasks = 100;
-
-            CompletableFuture.allOf(
-                    IntStream.range(0, numTasks)
-                            .mapToObj(ignore -> CompletableFuture.runAsync(() -> race.new SingleRace().tryObserveFutureWrite(triesPerTask)))
-                            .toArray(CompletableFuture<?>[]::new)
-            ).join();
-
-            if (race.futureWriteObserved.getOpaque()) {
-                out.printf("Observed future write after approximately %s attempts%n", race.failedAttempts.longValue());
-            } else {
-                out.printf("Did not observe future write after %s attempts%n", race.failedAttempts.longValue());
-            }
-        }
-    }
-
-    GetSetRace(MemoryOrdering memoryOrdering) {
         this.memoryOrdering = memoryOrdering;
+        this.workspace = new AtomicIntegerArray(workspaceSize);
+        this.parallelism = parallelism;
+        this.indicesPerSingleRace = workspaceSize / parallelism;
 
         Thread.ofVirtual().start(() -> {
             var lastFailedAttempts = failedAttempts.longValue();
@@ -153,4 +153,19 @@ class GetSetRace implements AutoCloseable {
         });
     }
 
+    void run() {
+        var triesPerTask = 100_000_000;
+
+        CompletableFuture.allOf(
+                IntStream.range(0, parallelism)
+                        .mapToObj(id -> CompletableFuture.runAsync(() -> new SingleRace(id).tryObserveFutureWrite(triesPerTask)))
+                        .toArray(CompletableFuture<?>[]::new)
+        ).join();
+
+        if (futureWriteObserved.getOpaque()) {
+            out.printf("Observed future write after approximately %s attempts%n", failedAttempts.longValue());
+        } else {
+            out.printf("Did not observe future write after %s attempts%n",failedAttempts.longValue());
+        }
+    }
 }
