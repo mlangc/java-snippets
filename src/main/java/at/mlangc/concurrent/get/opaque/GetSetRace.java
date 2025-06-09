@@ -58,7 +58,7 @@ class GetSetRace implements AutoCloseable {
             var tmpIx = rng.nextInt(indicesPerSingleRace);
 
             var tmpIy = rng.nextInt(indicesPerSingleRace);
-            while (tmpIy == ix) {
+            while (tmpIy == tmpIx) {
                 tmpIy = rng.nextInt(indicesPerSingleRace);
             }
 
