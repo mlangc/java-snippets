@@ -17,7 +17,7 @@ public enum MemoryOrdering {
     public void set(AtomicInteger atomic, int value) {
         switch (this) {
             case PLAIN -> atomic.setPlain(value);
-            case OPAQUE -> atomic.getOpaque();
+            case OPAQUE -> atomic.setOpaque(value);
             case ACQUIRE_RELEASE -> atomic.setRelease(value);
             case VOLATILE -> atomic.set(value);
         }
@@ -89,7 +89,7 @@ public enum MemoryOrdering {
     public void set(AtomicBoolean atomic, boolean value) {
         switch (this) {
             case PLAIN -> atomic.setPlain(value);
-            case OPAQUE -> atomic.getOpaque();
+            case OPAQUE -> atomic.setOpaque(value);
             case ACQUIRE_RELEASE -> atomic.setRelease(value);
             case VOLATILE -> atomic.set(value);
         }

@@ -14,7 +14,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.System.out;
 import static java.util.concurrent.CompletableFuture.delayedExecutor;
 
-class GetSetRace implements AutoCloseable {
+class ObserveFutureWriteRace implements AutoCloseable {
     private final MemoryOrdering memoryOrdering;
     private final LongAdder failedAttempts = new LongAdder();
     private final ExecutorService virtualThreadsExecutor = Executors.newVirtualThreadPerTaskExecutor();
@@ -26,7 +26,7 @@ class GetSetRace implements AutoCloseable {
     private final int indicesPerSingleRace;
 
     public static void main(String[] args) throws InterruptedException {
-        try (var race = new GetSetRace(100_000_000, 100, MemoryOrdering.OPAQUE)) {
+        try (var race = new ObserveFutureWriteRace(100_000_000, 100, MemoryOrdering.OPAQUE)) {
             race.run();
         }
     }
@@ -127,7 +127,7 @@ class GetSetRace implements AutoCloseable {
         }
     }
 
-    GetSetRace(int workspaceSize, int parallelism, MemoryOrdering memoryOrdering) {
+    ObserveFutureWriteRace(int workspaceSize, int parallelism, MemoryOrdering memoryOrdering) {
         checkArgument(workspaceSize % parallelism == 0);
 
         this.memoryOrdering = memoryOrdering;
