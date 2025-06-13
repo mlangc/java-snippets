@@ -76,7 +76,7 @@ public class ObservedSequenceRace implements AutoCloseable {
                         var idxB = iB * parallelism + id;
 
                         var memoryOrdering = randomMemoryOrdering.get();
-                        var result = new GetSetRace(memoryOrdering, work[idxA], work[idxB]).run();
+                        var result = new SetGetRace(memoryOrdering, work[idxA], work[idxB]).run();
                         observed.computeIfAbsent(result, newEmptyEnumSet).add(memoryOrdering);
                     }
 
@@ -87,7 +87,7 @@ public class ObservedSequenceRace implements AutoCloseable {
                 .mapToObj(startRacerJob)
                 .toList();
 
-        Thread.sleep(30_000);
+        Thread.sleep(5_000);
         done.setOpaque(true);
 
         for (var racerJob : racerJobs) {
@@ -120,7 +120,7 @@ public class ObservedSequenceRace implements AutoCloseable {
         }
     }
 
-    record RaceResult(int a1, int b1, int a2, int b2) {
+    record RaceResult(int b1, int a1, int b2, int a2) {
         boolean interesting() {
             return b1 > a1 || b2 > a2;
         }
@@ -130,12 +130,12 @@ public class ObservedSequenceRace implements AutoCloseable {
         }
     }
 
-    class GetSetRace {
+    class SetGetRace {
         private final MemoryOrdering memoryOrdering;
         private final AtomicInteger a;
         private final AtomicInteger b;
 
-        GetSetRace(MemoryOrdering memoryOrdering, AtomicInteger a, AtomicInteger b) {
+        SetGetRace(MemoryOrdering memoryOrdering, AtomicInteger a, AtomicInteger b) {
             this.memoryOrdering = memoryOrdering;
             this.a = a;
             this.b = b;
@@ -154,12 +154,14 @@ public class ObservedSequenceRace implements AutoCloseable {
             }, raceExecutorService);
 
             var getJob = CompletableFuture.supplyAsync(() -> {
+                // Note that a is written before b,
+                // but b is read before reading a.
                 var b1 = memoryOrdering.get(b);
                 var a1 = memoryOrdering.get(a);
                 var b2 = memoryOrdering.get(b);
                 var a2 = memoryOrdering.get(a);
 
-                return new RaceResult(a1, b1, a2, b2);
+                return new RaceResult(b1, a1, b2, a2);
             }, raceExecutorService);
 
             setJob.join();
