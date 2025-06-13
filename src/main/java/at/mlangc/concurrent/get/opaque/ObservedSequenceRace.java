@@ -124,7 +124,7 @@ public class ObservedSequenceRace implements AutoCloseable {
         }
     }
 
-    class SetGetRace {
+    static class SetGetRace {
         private final MemoryOrdering memoryOrdering;
         private final AtomicInteger a;
         private final AtomicInteger b;
