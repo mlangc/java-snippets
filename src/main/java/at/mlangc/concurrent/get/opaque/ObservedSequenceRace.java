@@ -15,7 +15,6 @@ import static java.lang.System.out;
 
 public class ObservedSequenceRace implements AutoCloseable {
     private final ExecutorService virtualThreadsExecutor = Executors.newVirtualThreadPerTaskExecutor();
-    private final ExecutorService raceExecutorService = Executors.newFixedThreadPool(8 * Runtime.getRuntime().availableProcessors());
     private final AtomicInteger[] work = new AtomicInteger[5_000_000];
 
     public static void main(String[] args) throws InterruptedException, TimeoutException {
@@ -109,13 +108,8 @@ public class ObservedSequenceRace implements AutoCloseable {
     @Override
     public void close() throws TimeoutException, InterruptedException {
         virtualThreadsExecutor.shutdown();
-        raceExecutorService.shutdown();
 
         if (!virtualThreadsExecutor.awaitTermination(1, TimeUnit.SECONDS)) {
-            throw new TimeoutException("Timed out");
-        }
-
-        if (!raceExecutorService.awaitTermination(1, TimeUnit.SECONDS)) {
             throw new TimeoutException("Timed out");
         }
     }
@@ -151,7 +145,7 @@ public class ObservedSequenceRace implements AutoCloseable {
 
                 memoryOrdering.set(b, 1);
                 memoryOrdering.set(b, 2);
-            }, raceExecutorService);
+            });
 
             var getJob = CompletableFuture.supplyAsync(() -> {
                 // Note that a is written before b,
@@ -162,7 +156,7 @@ public class ObservedSequenceRace implements AutoCloseable {
                 var a2 = memoryOrdering.get(a);
 
                 return new RaceResult(b1, a1, b2, a2);
-            }, raceExecutorService);
+            });
 
             setJob.join();
             return getJob.join();
