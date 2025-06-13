@@ -11,7 +11,7 @@ class SpinTillStop {
     private final AtomicBoolean stop = new AtomicBoolean();
 
     public static void main(String[] args) throws InterruptedException {
-        new SpinTillStop(MemoryOrdering.OPAQUE).run();
+        new SpinTillStop(MemoryOrdering.PLAIN).run();
     }
 
     SpinTillStop(MemoryOrdering memoryOrdering) {
@@ -22,7 +22,7 @@ class SpinTillStop {
         var spinner = Thread.ofPlatform().start(() -> {
             var spins = 0L;
             while (!memoryOrdering.get(stop)) {
-                spins += 0xbabe;
+                spins += 1;
             }
 
             out.printf("Done after %s spins%n", spins);

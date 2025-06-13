@@ -114,16 +114,6 @@ public class ObservedSequenceRace implements AutoCloseable {
         }
     }
 
-    record RaceResult(int b1, int a1, int b2, int a2) {
-        boolean interesting() {
-            return b1 > a1 || b2 > a2;
-        }
-
-        boolean spectacular() {
-            return a1 > a2 || b1 > b2;
-        }
-    }
-
     static class SetGetRace {
         private final MemoryOrdering memoryOrdering;
         private final AtomicInteger a;
@@ -160,6 +150,16 @@ public class ObservedSequenceRace implements AutoCloseable {
 
             setJob.join();
             return getJob.join();
+        }
+    }
+
+    record RaceResult(int b1, int a1, int b2, int a2) {
+        boolean interesting() {
+            return b1 > a1 || b2 > a2;
+        }
+
+        boolean spectacular() {
+            return a1 > a2 || b1 > b2;
         }
     }
 }
