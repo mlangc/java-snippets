@@ -2,26 +2,29 @@ package at.mlangc.concurrent.get.opaque;
 
 import at.mlangc.concurrent.MemoryOrdering;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.function.IntFunction;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 import static java.lang.System.out;
 
 public class ObservedSequenceRace implements AutoCloseable {
-    private final MemoryOrdering memoryOrdering;
     private final ExecutorService virtualThreadsExecutor = Executors.newVirtualThreadPerTaskExecutor();
-    private final ExecutorService raceExecutorService = Executors.newFixedThreadPool(4 * Runtime.getRuntime().availableProcessors());
-    private final AtomicInteger[] work = new AtomicInteger[1_000_000];
+    private final ExecutorService raceExecutorService = Executors.newFixedThreadPool(8 * Runtime.getRuntime().availableProcessors());
+    private final AtomicInteger[] work = new AtomicInteger[5_000_000];
 
     public static void main(String[] args) throws InterruptedException, TimeoutException {
-        try (var race = new ObservedSequenceRace(MemoryOrdering.PLAIN)) {
-            var results = race.run().stream().map(RaceResult::toString).sorted().toList();
+        try (var race = new ObservedSequenceRace()) {
+            var results = race.run().entrySet().stream()
+                    .map(e ->
+                            e.getKey() + "@" + orderingString(e.getValue()) + ":" + markerString(e.getKey()))
+                    .sorted()
+                    .toList();
 
             out.printf("Observed results: %n");
             for (var result : results) {
@@ -30,16 +33,39 @@ public class ObservedSequenceRace implements AutoCloseable {
         }
     }
 
-    Set<RaceResult> run() throws InterruptedException {
+    private static String markerString(RaceResult result) {
+        if (result.spectacular()) return "S";
+        else if (result.interesting()) return "i";
+        else return "b";
+    }
+
+    private static CharSequence orderingString(Set<MemoryOrdering> orderings) {
+        StringBuilder sb = new StringBuilder(MemoryOrdering.values().length);
+        for (MemoryOrdering ordering : MemoryOrdering.values()) {
+            if (orderings.contains(ordering)) {
+                sb.append(ordering.name().charAt(0));
+            } else {
+                sb.append('x');
+            }
+        }
+        return sb;
+    }
+
+    Map<RaceResult, Set<MemoryOrdering>> run() throws InterruptedException {
         var parallelism = 100;
         var atomicsPerThread = work.length / parallelism;
         var done = new AtomicBoolean();
-        var finalResult = new HashSet<RaceResult>();
+        var finalResult = new HashMap<RaceResult, Set<MemoryOrdering>>();
 
-        IntFunction<CompletableFuture<Set<RaceResult>>> startRacerJob = id ->
+        IntFunction<CompletableFuture<Map<RaceResult, Set<MemoryOrdering>>>> startRacerJob = id ->
                 CompletableFuture.supplyAsync(() -> {
-                    var observed = new HashSet<RaceResult>();
+                    var observed = new HashMap<RaceResult, Set<MemoryOrdering>>();
                     var rng = ThreadLocalRandom.current();
+
+                    Supplier<MemoryOrdering> randomMemoryOrdering = () ->
+                            MemoryOrdering.values()[rng.nextInt(MemoryOrdering.values().length)];
+
+                    Function<RaceResult, Set<MemoryOrdering>> newEmptyEnumSet = ignore -> EnumSet.noneOf(MemoryOrdering.class);
 
                     while (!done.getOpaque()) {
                         var iA = rng.nextInt(atomicsPerThread);
@@ -49,7 +75,9 @@ public class ObservedSequenceRace implements AutoCloseable {
                         var idxA = iA * parallelism + id;
                         var idxB = iB * parallelism + id;
 
-                        observed.add(new GetSetRace(work[idxA], work[idxB]).run());
+                        var memoryOrdering = randomMemoryOrdering.get();
+                        var result = new GetSetRace(memoryOrdering, work[idxA], work[idxB]).run();
+                        observed.computeIfAbsent(result, newEmptyEnumSet).add(memoryOrdering);
                     }
 
                     return observed;
@@ -59,18 +87,21 @@ public class ObservedSequenceRace implements AutoCloseable {
                 .mapToObj(startRacerJob)
                 .toList();
 
-        Thread.sleep(1000);
+        Thread.sleep(30_000);
         done.setOpaque(true);
 
-        for (CompletableFuture<Set<RaceResult>> racerJob : racerJobs) {
-            finalResult.addAll(racerJob.join());
+        for (var racerJob : racerJobs) {
+            racerJob.join().forEach((res, ordering) ->
+                    finalResult.merge(res, ordering, (current, addition) -> {
+                        current.addAll(addition);
+                        return current;
+                    }));
         }
 
         return finalResult;
     }
 
-    public ObservedSequenceRace(MemoryOrdering memoryOrdering) {
-        this.memoryOrdering = memoryOrdering;
+    public ObservedSequenceRace() {
         Arrays.setAll(work, ignore -> new AtomicInteger());
     }
 
@@ -89,39 +120,47 @@ public class ObservedSequenceRace implements AutoCloseable {
         }
     }
 
-    record RaceResult(int a1, int b1, int a2, int b2, int a3, int b3) {
+    record RaceResult(int a1, int b1, int a2, int b2) {
+        boolean interesting() {
+            return b1 > a1 || b2 > a2;
+        }
 
+        boolean spectacular() {
+            return a1 > a2 || b1 > b2;
+        }
     }
 
     class GetSetRace {
+        private final MemoryOrdering memoryOrdering;
         private final AtomicInteger a;
         private final AtomicInteger b;
 
-        GetSetRace(AtomicInteger a, AtomicInteger b) {
+        GetSetRace(MemoryOrdering memoryOrdering, AtomicInteger a, AtomicInteger b) {
+            this.memoryOrdering = memoryOrdering;
             this.a = a;
             this.b = b;
         }
 
         RaceResult run() {
-            a.setPlain(10);
-            b.setPlain(20);
+            a.setPlain(0);
+            b.setPlain(0);
 
             var setJob = CompletableFuture.runAsync(() -> {
-                memoryOrdering.set(a, 11);
-                memoryOrdering.set(a, 12);
-                memoryOrdering.set(a, 13);
+                memoryOrdering.set(a, 1);
+                memoryOrdering.set(a, 2);
 
-                memoryOrdering.set(b, 21);
-                memoryOrdering.set(b, 22);
-                memoryOrdering.set(b, 23);
+                memoryOrdering.set(b, 1);
+                memoryOrdering.set(b, 2);
             }, raceExecutorService);
 
-            var getJob = CompletableFuture.supplyAsync(() ->
-                            new RaceResult(
-                                    memoryOrdering.get(a), memoryOrdering.get(b),
-                                    memoryOrdering.get(a), memoryOrdering.get(b),
-                                    memoryOrdering.get(a), memoryOrdering.get(b))
-                    , raceExecutorService);
+            var getJob = CompletableFuture.supplyAsync(() -> {
+                var b1 = memoryOrdering.get(b);
+                var a1 = memoryOrdering.get(a);
+                var b2 = memoryOrdering.get(b);
+                var a2 = memoryOrdering.get(a);
+
+                return new RaceResult(a1, b1, a2, b2);
+            }, raceExecutorService);
 
             setJob.join();
             return getJob.join();
