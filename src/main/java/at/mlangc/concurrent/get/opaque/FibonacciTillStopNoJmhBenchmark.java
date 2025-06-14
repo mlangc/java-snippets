@@ -16,7 +16,7 @@ class FibonacciTillStopNoJmhBenchmark {
     private long runtimeNanos = 0;
 
     public static void main(String[] args) throws InterruptedException {
-        var memoryOrdering = MemoryOrdering.VOLATILE;
+        var memoryOrdering = MemoryOrdering.ACQUIRE_RELEASE;
         for (int i = 0; i < 3; i++) {
             benchmark(true, memoryOrdering);
         }
@@ -53,7 +53,7 @@ class FibonacciTillStopNoJmhBenchmark {
     }
 
     private void calcFibTillStopped() {
-        final var mod = 1_000_000_007;
+        final var mod = 0xbabe;
         var t0 = System.nanoTime();
         while (!memoryOrdering.get(stop)) {
             var fib2 = fib0 + fib1;
