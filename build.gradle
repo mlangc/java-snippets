@@ -60,7 +60,7 @@ tasks.withType(JavaExec).configureEach {
 }
 
 jmh {
-    includes = ["IndexedLockBenchmark.*"]
+    includes = ["FibonacciTillStopBenchmark.*"]
     threads = Integer.getInteger("jmhThreads", 1)
     resultFormat = "JSON"
     //profilers = ["jfr"]
