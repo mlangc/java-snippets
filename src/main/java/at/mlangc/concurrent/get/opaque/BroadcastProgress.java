@@ -25,17 +25,19 @@ public class BroadcastProgress {
 
     void printProgress() {
         var lastProgress = progress.getPlain();
-        var updateObserved = 0L;
+        var updatesObserved = 0L;
+        var lastUpdateObserved = 0L;
         while (!done.getOpaque()) {
             var currentProgress = progress.getPlain();
             if (currentProgress != lastProgress && currentProgress % 10 == 0) {
-                updateObserved++;
+                updatesObserved++;
+                lastUpdateObserved = currentProgress;
             }
 
             lastProgress = currentProgress;
         }
 
-        out.printf("%s updates observed%n", updateObserved);
+        out.printf("updatesObserved=%s, lastUpdateObserved=%s%n", updatesObserved, lastUpdateObserved);
     }
 
     void run() {
@@ -44,7 +46,7 @@ public class BroadcastProgress {
         progressPublishingJob.join();
     }
 
-    public static void main() {
+    public static void main(String[] args) {
         new BroadcastProgress().run();
     }
 }
