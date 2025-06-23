@@ -23,6 +23,25 @@ public enum MemoryOrdering {
         }
     }
 
+    public long get(AtomicLong atomic) {
+        return switch (this) {
+            case PLAIN -> atomic.getPlain();
+            case OPAQUE -> atomic.getOpaque();
+            case ACQUIRE_RELEASE -> atomic.getAcquire();
+            case VOLATILE -> atomic.get();
+        };
+    }
+
+    public void set(AtomicLong atomic, long value) {
+        switch (this) {
+            case PLAIN -> atomic.setPlain(value);
+            case OPAQUE -> atomic.setOpaque(value);
+            case ACQUIRE_RELEASE -> atomic.setRelease(value);
+            case VOLATILE -> atomic.set(value);
+        }
+    }
+
+
     public int get(AtomicIntegerArray atomicArray, int index) {
         return switch (this) {
             case PLAIN -> atomicArray.getPlain(index);

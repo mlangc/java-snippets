@@ -2,6 +2,9 @@ package at.mlangc.concurrent.get.opaque;
 
 import at.mlangc.concurrent.MemoryOrdering;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -14,6 +17,18 @@ public class BroadcastProgress {
     private final AtomicInteger progress = new AtomicInteger();
     private final AtomicBoolean done = new AtomicBoolean();
 
+    private int progress2 = 0;
+
+    private static final VarHandle PROGRESS;
+
+    static {
+        try {
+            PROGRESS = MethodHandles.lookup().findVarHandle(BroadcastProgress.class, "progress2", int.class);
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
     BroadcastProgress(MemoryOrdering memoryOrdering) {
         this.memoryOrdering = memoryOrdering;
     }
@@ -25,9 +40,9 @@ public class BroadcastProgress {
     }
 
     void publishProgress() {
-        for (int step = 0; step < 100_000L; step++) {
+        for (int step = 0; step < 100_000; step++) {
             doSomething();
-            memoryOrdering.set(progress, step);
+            PROGRESS.setOpaque(this, step);
         }
     }
 
@@ -35,8 +50,8 @@ public class BroadcastProgress {
 
     }
 
-    void printProgress() {
-        var observationCounts = new long[10];
+    void observeProgress() {
+        var observationCounts = new long[4];
         while (!done.getOpaque()) {
             var currentProgress = memoryOrdering.get(progress);
             observationCounts[(currentProgress % observationCounts.length)]++;
@@ -52,15 +67,15 @@ public class BroadcastProgress {
 
     void run() throws InterruptedException {
         var publishingJob = CompletableFuture.runAsync(this::startPublishingProgress);
-        var printingJob = CompletableFuture.runAsync(this::printProgress);
+        var observingJob = CompletableFuture.runAsync(this::observeProgress);
         Thread.sleep(100);
 
         done.setOpaque(true);
         publishingJob.join();
-        printingJob.join();
+        observingJob.join();
     }
 
     public static void main() throws InterruptedException {
-        new BroadcastProgress(MemoryOrdering.PLAIN).run();
+        new BroadcastProgress(MemoryOrdering.OPAQUE).run();
     }
 }
