@@ -139,7 +139,7 @@ public class ObservedSequenceRace implements AutoCloseable {
 
             var getJob = CompletableFuture.supplyAsync(() -> {
                 // Note that a is written before b,
-                // but b is read before reading a.
+                // but b is read before a.
                 var b1 = memoryOrdering.get(b);
                 var a1 = memoryOrdering.get(a);
                 var b2 = memoryOrdering.get(b);
@@ -155,10 +155,13 @@ public class ObservedSequenceRace implements AutoCloseable {
 
     record RaceResult(int b1, int a1, int b2, int a2) {
         boolean interesting() {
+            // Only possible if reads or writes have been reordered.
             return b1 > a1 || b2 > a2;
         }
 
         boolean spectacular() {
+            // Only possible if reads or writes to the same variable
+            // have been reordered.
             return a1 > a2 || b1 > b2;
         }
     }
