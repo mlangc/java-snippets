@@ -60,8 +60,8 @@ tasks.withType(JavaExec).configureEach {
 }
 
 jmh {
-    includes = ["ThreadSleep0Benchmark.*"]
-    threads = Integer.getInteger("jmhThreads", 1)
+    includes = ["ThreadSleep0Benchmark\\.(sleep0AndConsumeCpuTokens|tokensOnly)"]
+    threads = Integer.getInteger("jmhThreads", 16)
     resultFormat = "JSON"
     //profilers = ["jfr"]
 }
