@@ -19,23 +19,32 @@ public class FibonacciTillStopBenchmark {
     @Param
     private MemoryOrdering memoryOrdering;
 
-    @Benchmark
-    public int fibTillStop() {
-        return fibTillStop(memoryOrdering, stop);
+    @Param({"1", "10"})
+    private int batchSize;
+
+    @Param("100000")
+    private int limit;
+
+    @Setup
+    public void setup() {
+        if (limit % batchSize != 0) {
+            throw new IllegalArgumentException("limit=" + limit + " doesn't divide batchSize=" + batchSize);
+        }
     }
 
-    private static int fibTillStop(MemoryOrdering memoryOrdering, AtomicBoolean stop) {
+    @Benchmark
+    public int fibTillStop() {
         final var mod = 1_000_000_007;
         var fib0 = 0;
         var fib1 = 1;
-        stop.setPlain(false);
 
-        for (int i = 0; !memoryOrdering.get(stop) && i < 100_000; i++) {
-            var fib2 = fib0 + fib1;
-            if (fib2 >= mod) fib2 -= mod;
-            fib0 = fib1;
-            fib1 = fib2;
-
+        for (int i = 0; !memoryOrdering.get(stop) && i < 100_000; i += batchSize) {
+            for (int j = 0; j < batchSize; j++) {
+                var fib2 = fib0 + fib1;
+                if (fib2 >= mod) fib2 -= mod;
+                fib0 = fib1;
+                fib1 = fib2;
+            }
         }
 
         return fib1;
