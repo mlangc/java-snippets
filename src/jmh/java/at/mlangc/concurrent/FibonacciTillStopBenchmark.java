@@ -25,13 +25,6 @@ public class FibonacciTillStopBenchmark {
     @Param("100000")
     private int limit;
 
-    @Setup
-    public void setup() {
-        if (limit % batchSize != 0) {
-            throw new IllegalArgumentException("limit=" + limit + " doesn't divide batchSize=" + batchSize);
-        }
-    }
-
     @Benchmark
     public int fibTillStop() {
         final var mod = 1_000_000_007;
@@ -48,5 +41,12 @@ public class FibonacciTillStopBenchmark {
         }
 
         return fib1;
+    }
+
+    @Setup
+    public void setup() {
+        if (limit % batchSize != 0) {
+            throw new IllegalArgumentException("limit=" + limit + " doesn't divide batchSize=" + batchSize);
+        }
     }
 }
