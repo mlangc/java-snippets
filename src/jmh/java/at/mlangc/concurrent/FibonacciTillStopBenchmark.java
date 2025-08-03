@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class FibonacciTillStopBenchmark {
     private final AtomicBoolean stop = new AtomicBoolean();
 
-    @Param
+    @Param({"VOLATILE", "ACQUIRE_RELEASE", "OPAQUE"})
     private MemoryOrdering memoryOrdering;
 
     @Param({"1", "10"})
