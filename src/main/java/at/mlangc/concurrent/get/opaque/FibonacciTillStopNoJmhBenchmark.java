@@ -8,16 +8,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static java.lang.System.out;
 
 class FibonacciTillStopNoJmhBenchmark {
-    public static final int MOD = 0xbabe;
+    public static final int MOD = 1_000_000_007;
+
     private final AtomicBoolean stop = new AtomicBoolean();
     private final MemoryOrdering memoryOrdering;
     private long i = 0;
+    private int fib0 = 0;
     private int fib1 = 1;
     private long runtimeNanos = 0;
-    private int[] fibs = new int[1024];
 
     public static void main(String[] args) throws InterruptedException {
-        var memoryOrdering = MemoryOrdering.OPAQUE;
+        var memoryOrdering = MemoryOrdering.VOLATILE;
         for (int i = 0; i < 3; i++) {
             benchmark(true, memoryOrdering);
         }
@@ -51,30 +52,20 @@ class FibonacciTillStopNoJmhBenchmark {
 
     FibonacciTillStopNoJmhBenchmark(MemoryOrdering memoryOrdering) {
         this.memoryOrdering = memoryOrdering;
-
-        this.fibs[1] = 1;
-        for (int j = 2; j < fibs.length; j++) {
-            this.fibs[j] = this.fibs[j - 1] + this.fibs[j - 2];
-            if (this.fibs[j] >= MOD) this.fibs[j] -= MOD;
-        }
     }
 
     private void calcFibArrayTillStopped() {
-        i = fibs.length;
         var t0 = System.nanoTime();
+
         while (!memoryOrdering.get(stop)) {
-            var fibn = fibs[fibs.length - 1] + fibs[fibs.length - 2];
-            if (fibn >= MOD) fibn -= MOD;
+            var fib2 = fib0 + fib1;
+            if (fib2 >= MOD) fib2 -= MOD;
 
-            for (int j = 0; j < fibs.length - 1; j++) {
-                fibs[j] = fibs[j + 1];
-            }
-
-            fibs[fibs.length - 1] = fibn;
+            fib0 = fib1;
+            fib1 = fib2;
             i++;
         }
 
-        fib1 = fibs[fibs.length - 1];
         runtimeNanos += System.nanoTime() - t0;
     }
 }
