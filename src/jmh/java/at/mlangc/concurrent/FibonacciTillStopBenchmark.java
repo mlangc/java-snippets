@@ -2,9 +2,6 @@ package at.mlangc.concurrent;
 
 import org.openjdk.jmh.annotations.*;
 
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -31,7 +28,7 @@ public class FibonacciTillStopBenchmark {
         var fib0 = 0;
         var fib1 = 1;
 
-        for (int i = 0; !memoryOrdering.get(stop) && i < 100_000; i += batchSize) {
+        for (int i = 0; !memoryOrdering.get(stop) && i < limit; i += batchSize) {
             for (int j = 0; j < batchSize; j++) {
                 var fib2 = fib0 + fib1;
                 if (fib2 >= mod) fib2 -= mod;
