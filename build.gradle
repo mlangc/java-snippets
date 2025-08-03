@@ -2,6 +2,7 @@ plugins {
     id 'java'
     id "me.champeau.jmh"
     id "io.morethan.jmhreport"
+    id "io.github.reyerizo.gradle.jcstress"
 }
 
 group = 'org.example'
@@ -9,6 +10,7 @@ version = '1.0-SNAPSHOT'
 
 repositories {
     mavenCentral()
+    mavenLocal()
 }
 
 dependencies {
@@ -75,4 +77,9 @@ tasks.jmh.finalizedBy tasks.jmhReport
 
 tasks.jmhReport.doFirst {
     project.file('build/results/jmh/report').mkdirs()
+}
+
+jcstress {
+    verbose = true
+    jcstressDependency 'org.openjdk.jcstress:jcstress-core:_'
 }
