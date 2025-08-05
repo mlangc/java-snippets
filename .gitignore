@@ -104,3 +104,4 @@ fabric.properties
 .idea/
 *.dll
 *.asm
+.java-version
