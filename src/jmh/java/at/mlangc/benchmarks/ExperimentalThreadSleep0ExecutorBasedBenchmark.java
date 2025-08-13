@@ -10,7 +10,7 @@ import java.util.concurrent.*;
 @Measurement(iterations = 5, time = 10000, timeUnit = TimeUnit.MILLISECONDS)
 @BenchmarkMode(Mode.Throughput)
 @State(Scope.Thread)
-public class ThreadSleep0ExecutorBasedBenchmark {
+public class ExperimentalThreadSleep0ExecutorBasedBenchmark {
     public enum ExecutorConfig {
         VIRTUAL_THREAD_PER_TASK,
         WORK_STEALING_1,
