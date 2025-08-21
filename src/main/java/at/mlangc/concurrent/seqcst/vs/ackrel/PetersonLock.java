@@ -3,12 +3,12 @@ package at.mlangc.concurrent.seqcst.vs.ackrel;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 
-class PetersonLock extends IndexedLock {
+public class PetersonLock extends IndexedLock {
     private final MemoryOrdering memoryOrdering;
     private final AtomicIntegerArray interested = new AtomicIntegerArray(2);
     private final AtomicInteger turn = new AtomicInteger();
 
-    PetersonLock(MemoryOrdering memoryOrdering) {
+    public PetersonLock(MemoryOrdering memoryOrdering) {
         this.memoryOrdering = memoryOrdering;
     }
 

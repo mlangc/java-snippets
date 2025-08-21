@@ -1,3 +1,9 @@
+buildscript {
+    dependencies {
+        classpath 'com.vmlens:standalone:_'
+    }
+}
+
 plugins {
     id 'java'
     id "me.champeau.jmh"
@@ -22,6 +28,7 @@ dependencies {
     implementation 'jakarta.annotation:jakarta.annotation-api:_'
     implementation 'com.google.code.findbugs:jsr305:_'
     testImplementation 'org.awaitility:awaitility:_'
+    testImplementation 'com.vmlens:api:_'
 
     implementation 'org.apache.commons:commons-numbers-core:_'
 
@@ -30,10 +37,25 @@ dependencies {
     jmh 'org.openjdk.jmh:jmh-generator-bytecode:_'
 }
 
+import com.vmlens.gradle.VMLens
+
+tasks.register("vmlensReport") {
+    doLast {
+        new VMLens().process(layout.buildDirectory.getAsFile().get())
+    }
+}
+
 test {
+    doFirst{
+        jvmArgs new VMLens().setup(layout.buildDirectory.getAsFile().get())
+    }
+
+    // VMLens currently does not work with jacoco
+    jvmArgumentProviders.removeIf { it::class.java.simpleName == "JacocoAgent" }
     useJUnitPlatform {
         includeEngines "jqwik", "junit-jupiter"
     }
+    finalizedBy("vmlensReport")
 }
 
 java {
