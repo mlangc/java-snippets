@@ -1,14 +1,13 @@
 package at.mlangc.vmlens;
 
 import com.vmlens.api.AllInterleavings;
-import org.apache.commons.lang3.mutable.MutableInt;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
 class DinnerIsReadyVmLensTest {
     final AtomicBoolean ready = new AtomicBoolean();
-    final MutableInt dinner = new MutableInt();
+    int dinner;
 
     // Expected to succeed - but runs forever.
     @Test
@@ -16,17 +15,17 @@ class DinnerIsReadyVmLensTest {
         try (var allInterleavings = new AllInterleavings("ok")) {
             while (allInterleavings.hasNext()) {
                 ready.set(false);
-                dinner.setValue(0);
+                dinner = 0;
 
                 var thread1 = new Thread(() -> {
-                    dinner.setValue(42);
+                    dinner = 42;
                     ready.set(true);
                 });
 
 
                 thread1.start();
                 if (ready.get()) {
-                    dinner.increment();
+                    dinner++;
                 }
                 thread1.join();
             }
@@ -39,16 +38,16 @@ class DinnerIsReadyVmLensTest {
         try (var allInterleavings = new AllInterleavings("nok")) {
             while (allInterleavings.hasNext()) {
                 ready.set(false);
-                dinner.setValue(0);
+                dinner = 0;
 
                 var thread1 = new Thread(() -> {
                     ready.set(true);
-                    dinner.setValue(42);
+                    dinner = 42;
                 });
 
                 thread1.start();
                 if (ready.get()) {
-                    dinner.increment();
+                    dinner++;
                 }
                 thread1.join();
             }
