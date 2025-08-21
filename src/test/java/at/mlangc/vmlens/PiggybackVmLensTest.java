@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class PiggybackVmLensTest {
+class PiggybackVmLensTest {
     final AtomicBoolean ready = new AtomicBoolean();
     final MutableInt dinner = new MutableInt();
 
