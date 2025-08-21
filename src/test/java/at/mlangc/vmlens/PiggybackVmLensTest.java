@@ -10,6 +10,7 @@ public class PiggybackVmLensTest {
     final AtomicBoolean ready = new AtomicBoolean();
     final MutableInt dinner = new MutableInt();
 
+    // Expected to succeed - but runs forever.
     @Test
     void shouldNotDetectProblemIfProperlyProtectedByVolatileAckRel() throws InterruptedException {
         try (var allInterleavings = new AllInterleavings("ok")) {
@@ -32,6 +33,7 @@ public class PiggybackVmLensTest {
         }
     }
 
+    // Expected to fail - but runs forever.
     @Test
     void shouldDetectProblemIfVolatileReleaseTooEarly() throws InterruptedException {
         try (var allInterleavings = new AllInterleavings("nok")) {
