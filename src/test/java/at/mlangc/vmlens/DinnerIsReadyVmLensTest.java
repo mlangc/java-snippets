@@ -6,13 +6,13 @@ import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
-class PiggybackVmLensTest {
+class DinnerIsReadyVmLensTest {
     final AtomicBoolean ready = new AtomicBoolean();
     final MutableInt dinner = new MutableInt();
 
     // Expected to succeed - but runs forever.
     @Test
-    void shouldNotDetectProblemIfProperlyProtectedByVolatileAckRel() throws InterruptedException {
+    void shouldNotDetectProblemIfUpdateIsProperlyReleased() throws InterruptedException {
         try (var allInterleavings = new AllInterleavings("ok")) {
             while (allInterleavings.hasNext()) {
                 ready.set(false);
@@ -35,7 +35,7 @@ class PiggybackVmLensTest {
 
     // Expected to fail - but runs forever.
     @Test
-    void shouldDetectProblemIfVolatileReleaseTooEarly() throws InterruptedException {
+    void shouldDetectProblemIfUpdateIsReleasedTooEarly() throws InterruptedException {
         try (var allInterleavings = new AllInterleavings("nok")) {
             while (allInterleavings.hasNext()) {
                 ready.set(false);
@@ -47,11 +47,9 @@ class PiggybackVmLensTest {
                 });
 
                 thread1.start();
-
                 if (ready.get()) {
                     dinner.increment();
                 }
-
                 thread1.join();
             }
         }
