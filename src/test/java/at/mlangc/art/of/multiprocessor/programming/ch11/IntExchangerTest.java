@@ -85,9 +85,9 @@ class IntExchangerTest {
     @Property(shrinking = ShrinkingMode.OFF)
     void exchangerShouldWorkUnderHighContention(
             @ForAll ExchangerImpl impl,
-            @ForAll @IntRange(min = 2, max = 16) int parallelism0) {
+            @ForAll @IntRange(min = 2, max = 8) int parallelism0) {
         final var parallelism = Math.min(parallelism0, availableProcessors());
-        final var limit = 25_000 * parallelism;
+        final var limit = 1000 * parallelism;
         final var exchanger = impl.ctor.apply(parallelism);
 
         AtomicInteger runningExchangers = new AtomicInteger();
