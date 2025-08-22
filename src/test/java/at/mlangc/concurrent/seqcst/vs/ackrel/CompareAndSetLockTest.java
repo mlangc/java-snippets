@@ -1,5 +1,7 @@
 package at.mlangc.concurrent.seqcst.vs.ackrel;
 
+import at.mlangc.concurrent.MemoryOrdering;
+
 class CompareAndSetLockTest extends IndexedLockTest {
     @Override
     IndexedLock newLock() {

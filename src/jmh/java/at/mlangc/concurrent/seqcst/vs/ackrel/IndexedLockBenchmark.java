@@ -1,5 +1,6 @@
 package at.mlangc.concurrent.seqcst.vs.ackrel;
 
+import at.mlangc.concurrent.MemoryOrdering;
 import org.openjdk.jmh.annotations.*;
 
 import java.util.ArrayList;

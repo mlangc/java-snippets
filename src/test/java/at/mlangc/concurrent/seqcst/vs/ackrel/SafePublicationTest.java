@@ -1,5 +1,6 @@
 package at.mlangc.concurrent.seqcst.vs.ackrel;
 
+import at.mlangc.concurrent.MemoryOrdering;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
