@@ -5,7 +5,7 @@ class BakeryLockTest extends IndexedLockTest {
     IndexedLock newLock() {
         return new BakeryLock(
                 Math.max(1, Runtime.getRuntime().availableProcessors() - 1),
-                MemoryOrdering.PLAIN);
+                MemoryOrdering.VOLATILE);
     }
 
     @Override

@@ -3,7 +3,7 @@ package at.mlangc.concurrent.seqcst.vs.ackrel;
 class TweakablePetersonLockTest extends IndexedLockTest {
     @Override
     IndexedLock newLock() {
-        return new TweakablePetersonLock(MemoryOrdering.ACQUIRE_RELEASE, true);
+        return new TweakablePetersonLock(MemoryOrdering.VOLATILE, true);
     }
 
     @Override

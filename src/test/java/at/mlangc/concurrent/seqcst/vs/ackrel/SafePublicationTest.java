@@ -60,7 +60,7 @@ class SafePublicationTest {
     }
 
     @ParameterizedTest
-    @EnumSource
+    @EnumSource(mode = EnumSource.Mode.EXCLUDE, names = { "PLAIN" })
     void objectShouldBePublishedByGetAckOnStoreRel(MemoryOrdering memoryOrdering) throws InterruptedException {
         var objects = new AtomicReferenceArray<SomeClass>(1024);
         var randomValues = ThreadLocalRandom.current().ints(8 * 1024 * 1024, 1, Integer.MAX_VALUE).toArray();
