@@ -24,9 +24,10 @@ import java.util.concurrent.TimeUnit;
  *     </ul>
  * </p>
  */
-@Fork(1)
+//@Fork(1)
+@Fork(value = 1, jvmArgsPrepend = "-XX:CompileCommand=print,at.mlangc.benchmarks.ListCastingOverheadBenchmark::group3*")
 @Warmup(iterations = 3, time = 100, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 10, time = 100, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 10, time = 200, timeUnit = TimeUnit.MILLISECONDS)
 @BenchmarkMode(Mode.Throughput)
 @State(Scope.Thread)
 public class ListCastingOverheadBenchmark {
@@ -124,7 +125,7 @@ public class ListCastingOverheadBenchmark {
      * A custom sink, that stores objects in an internal array.
      *
      * @implNote objects are written in reverse order to prevent smart compilers from figuring out that they could
-     * just use {@link System#arraycopy(Object, int, Object, int, int)} instead of consuming objects one by one under specific conditions.
+     * use an equivalent of {@link System#arraycopy(Object, int, Object, int, int)} under certain conditions.
      */
     public static final class ArraySink {
         final Object[] values;
