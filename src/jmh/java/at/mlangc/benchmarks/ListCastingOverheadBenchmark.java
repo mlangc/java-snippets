@@ -24,8 +24,8 @@ import java.util.concurrent.TimeUnit;
  *     </ul>
  * </p>
  */
-//@Fork(1)
-@Fork(value = 1, jvmArgsPrepend = "-XX:CompileCommand=print,at.mlangc.benchmarks.ListCastingOverheadBenchmark::group3*")
+@Fork(1)
+//@Fork(value = 1, jvmArgsPrepend = "-XX:CompileCommand=print,at.mlangc.benchmarks.ListCastingOverheadBenchmark::group3*")
 @Warmup(iterations = 3, time = 100, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 10, time = 200, timeUnit = TimeUnit.MILLISECONDS)
 @BenchmarkMode(Mode.Throughput)
