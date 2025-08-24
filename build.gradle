@@ -14,7 +14,7 @@ repositories {
 dependencies {
     testImplementation Testing.assertj.core
     testImplementation Testing.junit.jupiter
-    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher:_"
     testImplementation "net.jqwik:jqwik:_"
 
     implementation 'org.apache.commons:commons-lang3:_'
@@ -28,6 +28,7 @@ dependencies {
     jmh 'org.openjdk.jmh:jmh-core:_'
     jmh 'org.openjdk.jmh:jmh-generator-annprocess:_'
     jmh 'org.openjdk.jmh:jmh-generator-bytecode:_'
+    jmh 'io.github.fzhinkin:xctraceprof:_'
 }
 
 test {
@@ -60,10 +61,10 @@ tasks.withType(JavaExec).configureEach {
 }
 
 jmh {
-    includes = ["\\bCastingBenchmark"]
+    includes = ["ListCastingOverheadBenchmark\\.group3"]
     threads = Integer.getInteger("jmhThreads", 1)
     resultFormat = "JSON"
-    //profilers = ["jfr"]
+    //profilers = ["org.openjdk.jmh.profile.XCTraceAsmProfiler"]
 }
 
 jmhReport {
