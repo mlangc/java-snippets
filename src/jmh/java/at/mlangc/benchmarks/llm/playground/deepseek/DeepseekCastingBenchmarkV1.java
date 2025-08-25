@@ -1,4 +1,4 @@
-package at.mlangc.benchmarks;
+package at.mlangc.benchmarks.llm.playground.deepseek;
 
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;

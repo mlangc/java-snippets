@@ -1,6 +1,7 @@
-package at.mlangc.benchmarks;
+package at.mlangc.benchmarks.llm.playground.copilot;
 
 import org.openjdk.jmh.annotations.*;
+import org.openjdk.jmh.infra.Blackhole;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -12,37 +13,33 @@ import java.util.concurrent.TimeUnit;
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @State(Scope.Thread)
-public class CopilotCastingBenchmarkV1 {
+public class CopilotCastingBenchmarkV2 {
 
     private List<Object> objectList;
     private List<String> stringList;
+    private int index;
 
-    @Setup
+    @Setup(Level.Iteration)
     public void setup() {
         stringList = new ArrayList<>();
         objectList = new ArrayList<>();
         for (int i = 0; i < 1000; i++) {
             String value = "value" + i;
             stringList.add(value);
-            objectList.add(value); // same values, but stored as Object
+            objectList.add(value); // stored as Object
         }
+        index = 0;
     }
 
     @Benchmark
-    public String castFromObject() {
-        String result = null;
-        for (Object obj : objectList) {
-            result = (String) obj; // cast always succeeds
-        }
-        return result;
+    public void castFromObject(Blackhole bh) {
+        Object obj = objectList.get(index++ % objectList.size());
+        bh.consume((String) obj); // cast always succeeds
     }
 
     @Benchmark
-    public String noCastFromString() {
-        String result = null;
-        for (String str : stringList) {
-            result = str; // no cast needed
-        }
-        return result;
+    public void noCastFromString(Blackhole bh) {
+        String str = stringList.get(index++ % stringList.size());
+        bh.consume(str); // no cast
     }
 }
