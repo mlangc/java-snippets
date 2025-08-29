@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit;
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
-public class CopilotSubmission1 {
+public class CopilotGpt5Submission1 {
 
     private static final int SIZE = 1_000;
     private List<Integer> list;
