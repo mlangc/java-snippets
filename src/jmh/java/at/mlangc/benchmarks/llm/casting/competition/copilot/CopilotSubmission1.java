@@ -18,6 +18,9 @@ import java.util.concurrent.TimeUnit;
  * the cost of the explicit cast itself.
  */
 
+@Fork(1)
+@Warmup(iterations = 3, time = 100, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 10, time = 200, timeUnit = TimeUnit.MILLISECONDS)
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
