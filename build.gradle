@@ -28,6 +28,7 @@ dependencies {
     jmh 'org.openjdk.jmh:jmh-core:_'
     jmh 'org.openjdk.jmh:jmh-generator-annprocess:_'
     jmh 'org.openjdk.jmh:jmh-generator-bytecode:_'
+    jmh 'io.github.fzhinkin:xctraceprof:_'
 }
 
 test {
@@ -60,10 +61,10 @@ tasks.withType(JavaExec).configureEach {
 }
 
 jmh {
-    includes = ["ThreadSleep0Benchmark\\."]
+    includes = ["ExtendedRecordHashCodeBenchmark"]
     threads = Integer.getInteger("jmhThreads", 1)
     resultFormat = "JSON"
-    //profilers = ["jfr"]
+    //profilers = ["org.openjdk.jmh.profile.XCTraceAsmProfiler"]
 }
 
 jmhReport {
