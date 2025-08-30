@@ -17,9 +17,9 @@ import java.util.concurrent.TimeUnit;
  * incurred by implicit casts. Here is a brief summary of the different groups:
  *
  *     <ul>
- *         <li>group0 compares reading a reference to reading and an implicit cast</li>
- *         <li>group1 compares copying a reference to copying and an implicit cast</li>
- *         <li>group2 compares calling hashCode to calling hashCode and an implicit cast</li>
+ *         <li>group0 compares reading a reference to reading and an implicit cast, while iterating</li>
+ *         <li>group1 compares copying a reference to copying and an implicit cast, while iterating</li>
+ *         <li>group2 compares calling hashCode to calling hashCode and an implicit cast, while iterating</li>
  *         <li>group3 does the same as group2, but iterates over <code>Object[]</code> and <code>Integer[]</code></li>
  *     </ul>
  * </p>
