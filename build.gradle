@@ -61,7 +61,7 @@ tasks.withType(JavaExec).configureEach {
 }
 
 jmh {
-    includes = ["CopilotBoxingOverheadBenchmark"]
+    includes = ["ListCastingOverheadBenchmark\\.group2.*"]
     threads = Integer.getInteger("jmhThreads", 1)
     resultFormat = "JSON"
     //profilers = ["org.openjdk.jmh.profile.XCTraceAsmProfiler"]
