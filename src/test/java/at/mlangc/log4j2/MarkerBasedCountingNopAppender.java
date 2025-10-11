@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 @Plugin(name = "MarkerBasedCountingNopAppender", category = Node.CATEGORY, elementType = Appender.ELEMENT_TYPE, printObject = false)
 public class MarkerBasedCountingNopAppender extends AbstractAppender {
-    public static final Marker NULL_MARKER = MarkerManager.getMarker("NULL:" + UUID.randomUUID());
+    public static final Marker NO_MARKER = MarkerManager.getMarker("NULL:" + UUID.randomUUID());
 
     private final ConcurrentHashMap<Marker, AtomicLong> counters = new ConcurrentHashMap<>();
 
@@ -29,7 +29,7 @@ public class MarkerBasedCountingNopAppender extends AbstractAppender {
 
     @Override
     public void append(LogEvent event) {
-        var marker = event.getMarker() == null ? NULL_MARKER : event.getMarker();
+        var marker = event.getMarker() == null ? NO_MARKER : event.getMarker();
         counters.computeIfAbsent(marker, ignore -> new AtomicLong()).incrementAndGet();
     }
 
@@ -37,7 +37,7 @@ public class MarkerBasedCountingNopAppender extends AbstractAppender {
     public static MarkerBasedCountingNopAppender createAppender(
             @PluginAttribute("name") String name,
             @PluginElement("Filter") Filter filter,
-            @PluginElement("Layout") Layout layout) {
+            @PluginElement("Layout") Layout<? extends Serializable> layout) {
         return new MarkerBasedCountingNopAppender(name, filter, layout);
     }
 
@@ -49,5 +49,9 @@ public class MarkerBasedCountingNopAppender extends AbstractAppender {
 
     public static MarkerBasedCountingNopAppender getListAppender(final String name) {
         return LoggerContext.getContext(false).getConfiguration().getAppender(name);
+    }
+
+    public void resetCounters() {
+        counters.clear();
     }
 }

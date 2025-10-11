@@ -10,6 +10,7 @@ import org.apache.logging.log4j.core.config.plugins.Plugin;
 import org.apache.logging.log4j.core.config.plugins.PluginAttribute;
 import org.apache.logging.log4j.core.config.plugins.PluginElement;
 import org.apache.logging.log4j.core.config.plugins.PluginFactory;
+import org.apache.logging.log4j.core.config.plugins.validation.constraints.Required;
 import org.apache.logging.log4j.core.filter.AbstractFilter;
 import org.apache.logging.log4j.message.Message;
 
@@ -23,13 +24,14 @@ import java.util.concurrent.atomic.AtomicLong;
 @Plugin(name = "MarkerBasedBurstFilter", category = Node.CATEGORY, elementType = Filter.ELEMENT_TYPE, printObject = true)
 public class MarkerBasedBurstFilter extends AbstractFilter {
     @Plugin(name = "MatchMarker", category = Node.CATEGORY, printObject = true)
-    public record MatchMarker(String marker, int intervalSecs, int maxLogs) {
+    public record MatchMarker(String marker, long intervalNanos, int maxLogs) {
         @PluginFactory
         public static MatchMarker createNested(
-                @PluginAttribute("marker") String marker,
-                @PluginAttribute("intervalSecs") int intervalSecs,
-                @PluginAttribute("maxLogs") int maxLogs) {
-            return new MatchMarker(marker, intervalSecs, maxLogs);
+                @Required @PluginAttribute("marker") String marker,
+                @Required @PluginAttribute("interval") int interval,
+                @Required @PluginAttribute("maxLogs") int maxLogs,
+                @Required @PluginAttribute("timeUnit") TimeUnit timeUnit) {
+            return new MatchMarker(marker, timeUnit.toNanos(interval), maxLogs);
         }
     }
 
@@ -65,8 +67,7 @@ public class MarkerBasedBurstFilter extends AbstractFilter {
                 throw new IllegalArgumentException("Marker configured more than once: " + matchMarker.marker);
             }
 
-            var intervalNanos = TimeUnit.SECONDS.toNanos(matchMarker.intervalSecs);
-            var perMarkerState = new PerMarkerState(matchMarker.marker, intervalNanos, matchMarker.maxLogs);
+            var perMarkerState = new PerMarkerState(matchMarker.marker, matchMarker.intervalNanos, matchMarker.maxLogs);
             this.perMarkerStates[i] = perMarkerState;
         }
     }

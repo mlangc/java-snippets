@@ -4,7 +4,7 @@ plugins {
     id "io.morethan.jmhreport"
 }
 
-group = 'org.example'
+group = 'at.mlangc'
 version = '1.0-SNAPSHOT'
 
 repositories {
@@ -56,6 +56,11 @@ compileJava {
 
 tasks.withType(JavaCompile).configureEach {
     it.options.compilerArgs += "--enable-preview"
+
+    it.options.compilerArgs += [
+            '-Alog4j.graalvm.groupId=at.mlangc',
+            '-Alog4j.graalvm.artifactId=java-snippets'
+    ]
 }
 
 tasks.withType(Test).configureEach {
