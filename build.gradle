@@ -14,15 +14,21 @@ repositories {
 dependencies {
     testImplementation Testing.assertj.core
     testImplementation Testing.junit.jupiter
-    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
     testImplementation "net.jqwik:jqwik:_"
+    testImplementation 'org.awaitility:awaitility:_'
+    testImplementation 'org.apache.logging.log4j:log4j-core-test:_'
+    testAnnotationProcessor 'org.apache.logging.log4j:log4j-core:_'
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher:_"
+
+    implementation 'org.apache.logging.log4j:log4j-slf4j2-impl:_'
+    implementation 'org.apache.logging.log4j:log4j-api:_'
+    implementation 'org.apache.logging.log4j:log4j-core:_'
+    annotationProcessor 'org.apache.logging.log4j:log4j-core:_'
 
     implementation 'org.apache.commons:commons-lang3:_'
     implementation 'com.google.guava:guava:_'
     implementation 'jakarta.annotation:jakarta.annotation-api:_'
     implementation 'com.google.code.findbugs:jsr305:_'
-    testImplementation 'org.awaitility:awaitility:_'
-
     implementation 'org.apache.commons:commons-numbers-core:_'
 
     jmh 'org.openjdk.jmh:jmh-core:_'

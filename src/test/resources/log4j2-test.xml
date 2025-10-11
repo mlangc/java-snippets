@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+    <Filters>
+        <MarkerBasedBurstFilter>
+            <MatchMarker marker="throttle:1s:1logs" intervalSecs="1" maxLogs="1"/>
+            <MatchMarker marker="throttle:1s:2logs" intervalSecs="1" maxLogs="2"/>
+            <MatchMarker marker="throttle:2s:2logs" intervalSecs="2" maxLogs="2"/>
+        </MarkerBasedBurstFilter>
+    </Filters>
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} %-5level %c{2} - %msg%n"/>
+        </Console>
+        <MarkerBasedCountingNopAppender name="Test"/>
+    </Appenders>
+    <Loggers>
+        <Root level="info">
+            <AppenderRef ref="Console"/>
+        </Root>
+
+        <Logger name="at.mlangc.log4j2.MarkerBasedBurstFilterTest">
+            <AppenderRef ref="Test"/>
+        </Logger>
+    </Loggers>
+</Configuration>
