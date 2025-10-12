@@ -52,11 +52,15 @@ public class MarkerBasedBurstFilter extends AbstractFilter {
                     intervalNanos,
                     TimeUnit.NANOSECONDS);
         }
+
+        boolean acquirePermit() {
+            return permittedLogs.get() > 0 && permittedLogs.decrementAndGet() >= 0;
+        }
     }
 
     private final PerMarkerState[] perMarkerStates;
 
-    public MarkerBasedBurstFilter(MatchMarker[] matchMarkers) {
+    MarkerBasedBurstFilter(MatchMarker[] matchMarkers) {
         this.perMarkerStates = new PerMarkerState[matchMarkers.length];
 
         var markersSeen = new HashSet<String>();
@@ -156,13 +160,14 @@ public class MarkerBasedBurstFilter extends AbstractFilter {
     private Result filter(Marker marker) {
         if (marker == null) return Result.NEUTRAL;
 
+        Result res = Result.NEUTRAL;
         for (var perMarkerState : perMarkerStates) {
-            if (marker.isInstanceOf(perMarkerState.marker) && perMarkerState.permittedLogs.decrementAndGet() < 0) {
-                return Result.DENY;
+            if (marker.isInstanceOf(perMarkerState.marker) && !perMarkerState.acquirePermit()) {
+                res = Result.DENY;
             }
         }
 
-        return Result.NEUTRAL;
+        return res;
     }
 
     @Override

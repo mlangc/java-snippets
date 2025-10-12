@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} %-5level %c{2} - %msg%n"/>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Root level="warn">
+            <AppenderRef ref="Console"/>
+        </Root>
+
+        <Logger name="at.mlangc.log4j2.BurstFilterBenchmark.PlainBurstFilter">
+            <BurstFilter rate="1" maxBurst="10"/>
+        </Logger>
+
+        <Logger name="at.mlangc.log4j2.BurstFilterBenchmark.MarkerBasedBurstFilter">
+            <MarkerBasedBurstFilter>
+                <MatchMarker marker="atMost10LogsIn10Secs" interval="10" timeUnit="SECONDS" maxLogs="10"/>
+            </MarkerBasedBurstFilter>
+        </Logger>
+    </Loggers>
+</Configuration>

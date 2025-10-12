@@ -2,9 +2,9 @@
 <Configuration status="WARN">
     <Filters>
         <MarkerBasedBurstFilter>
-            <MatchMarker marker="global:throttle:1s:1logs" interval="1" timeUnit="MILLISECONDS" maxLogs="1"/>
-            <MatchMarker marker="global:throttle:1s:2logs" interval="1" timeUnit="MILLISECONDS" maxLogs="2"/>
-            <MatchMarker marker="global:throttle:2s:2logs" interval="2" timeUnit="MILLISECONDS" maxLogs="2"/>
+            <MatchMarker marker="globallyThrottled1" interval="1" timeUnit="MILLISECONDS" maxLogs="1"/>
+            <MatchMarker marker="globallyThrottled2" interval="1" timeUnit="MILLISECONDS" maxLogs="2"/>
+            <MatchMarker marker="globallyThrottled3" interval="2" timeUnit="MILLISECONDS" maxLogs="2"/>
         </MarkerBasedBurstFilter>
     </Filters>
     <Appenders>
@@ -21,11 +21,10 @@
         <Logger name="at.mlangc.log4j2.MarkerBasedBurstFilterTest">
             <AppenderRef ref="CountingNopAppender"/>
             <MarkerBasedBurstFilter>
-                <MatchMarker marker="logger-specific:throttle:1s:1logs" interval="1" maxLogs="1" timeUnit="MILLISECONDS"/>
+                <MatchMarker marker="loggerLocallyThrottled1" interval="1" maxLogs="1" timeUnit="MILLISECONDS"/>
             </MarkerBasedBurstFilter>
         </Logger>
-
-        <Logger name="at.mlangc.log4j2.MarkerBasedBurstFilterTest.Other">
+        <Logger name="at.mlangc.log4j2.Other">
             <AppenderRef ref="CountingNopAppender"/>
         </Logger>
     </Loggers>

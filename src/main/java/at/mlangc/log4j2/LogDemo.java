@@ -7,13 +7,13 @@ import org.slf4j.MarkerFactory;
 
 public class LogDemo {
     private static final Logger LOG = LoggerFactory.getLogger(LogDemo.class);
-    private static final Marker THROTTLE_ONE_LOGS_PER_SEC = MarkerFactory.getMarker("throttle:1ps");
-    private static final Marker THROTTLE_TWO_LOGS_PER_SEC = MarkerFactory.getMarker("throttle:2ps");
 
-    static void main() throws InterruptedException {
+    @SuppressWarnings("LoggingSimilarMessage")
+    static void main() {
         while (true) {
-            LOG.info(THROTTLE_ONE_LOGS_PER_SEC, "Running 1");
-            LOG.info(THROTTLE_TWO_LOGS_PER_SEC, "Running 2");
+            LOG.info(ThrottlingMarkers.AT_MOST_100_LOGS_IN_10_SECS, "Logging with {}", ThrottlingMarkers.AT_MOST_100_LOGS_IN_10_SECS.getName());
+            LOG.info(ThrottlingMarkers.AT_MOST_10_LOGS_IN_10_SECS, "Logging with {}", ThrottlingMarkers.AT_MOST_10_LOGS_IN_10_SECS.getName());
+            LOG.info(ThrottlingMarkers.AT_MOST_10_LOGS_IN_100_SECS, "Logging with {}", ThrottlingMarkers.AT_MOST_10_LOGS_IN_100_SECS.getName());
         }
     }
 }

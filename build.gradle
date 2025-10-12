@@ -72,10 +72,14 @@ tasks.withType(JavaExec).configureEach {
 }
 
 jmh {
-    includes = ["ExtendedRecordHashCodeBenchmark"]
+    includes = ["BurstFilterBenchmark.logMarkerBasedBurstFilter"]
     threads = Integer.getInteger("jmhThreads", 1)
     resultFormat = "JSON"
     //profilers = ["org.openjdk.jmh.profile.XCTraceAsmProfiler"]
+}
+
+jmhJar {
+
 }
 
 jmhReport {

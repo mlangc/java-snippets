@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration status="WARN">
+    <Filters>
+        <MarkerBasedBurstFilter>
+            <MatchMarker marker="atMost100LogsIn10Secs" interval="10" timeUnit="SECONDS" maxLogs="100"/>
+            <MatchMarker marker="atMost10LogsIn10Secs" interval="10" timeUnit="SECONDS" maxLogs="10"/>
+            <MatchMarker marker="atMost10LogsIn100Secs" interval="100" timeUnit="SECONDS" maxLogs="10"/>
+        </MarkerBasedBurstFilter>
+    </Filters>
     <Appenders>
         <Console name="Console" target="SYSTEM_OUT">
             <PatternLayout pattern="%d{HH:mm:ss.SSS} %-5level %c{2} - %msg%n"/>
