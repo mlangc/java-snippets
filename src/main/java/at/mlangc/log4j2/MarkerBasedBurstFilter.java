@@ -60,7 +60,7 @@ public class MarkerBasedBurstFilter extends AbstractFilter {
 
     private final PerMarkerState[] perMarkerStates;
 
-    MarkerBasedBurstFilter(MatchMarker[] matchMarkers) {
+    MarkerBasedBurstFilter(MatchMarker... matchMarkers) {
         this.perMarkerStates = new PerMarkerState[matchMarkers.length];
 
         var markersSeen = new HashSet<String>();

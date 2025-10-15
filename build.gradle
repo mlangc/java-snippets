@@ -1,8 +1,7 @@
 plugins {
     id 'java'
-    id "me.champeau.jmh" version "0.7.3"
-    id "io.morethan.jmhreport" version "0.9.6"
-    id "com.gradleup.shadow" version "9.2.2"
+    id "me.champeau.jmh"
+    id "io.morethan.jmhreport"
 }
 
 group = 'at.mlangc'
@@ -73,17 +72,11 @@ tasks.withType(JavaExec).configureEach {
 }
 
 jmh {
-    includes = ["BurstFilterBenchmark.logMarkerBasedBurstFilter"]
+    includes = ["BurstFilterBenchmark.markerBased"]
     threads = Integer.getInteger("jmhThreads", 1)
     resultFormat = "JSON"
-    duplicateClassesStrategy = DuplicatesStrategy.INCLUDE
+    //profilers = ["jfr"]
     //profilers = ["org.openjdk.jmh.profile.XCTraceAsmProfiler"]
-}
-
-jmhJar {
-    transform(com.github.jengelman.gradle.plugins.shadow.transformers.Log4j2PluginsCacheFileTransformer)
-    transform(com.github.jengelman.gradle.plugins.shadow.transformers.ServicesResourceTransformer)
-    transform(com.github.jengelman.gradle.plugins.shadow.transformers.ManifestResourceTransformer)
 }
 
 jmhReport {

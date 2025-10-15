@@ -13,11 +13,5 @@
         <Logger name="at.mlangc.log4j2.BurstFilterBenchmark.PlainBurstFilter">
             <BurstFilter rate="1" maxBurst="10"/>
         </Logger>
-
-        <Logger name="at.mlangc.log4j2.BurstFilterBenchmark.MarkerBasedBurstFilter">
-            <MarkerBasedBurstFilter>
-                <MatchMarker marker="atMost10LogsIn10Secs" interval="10" timeUnit="SECONDS" maxLogs="10"/>
-            </MarkerBasedBurstFilter>
-        </Logger>
     </Loggers>
 </Configuration>
