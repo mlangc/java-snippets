@@ -1,4 +1,4 @@
-package at.mlangc.log4j2;
+package at.mlangc.log4j2.throttling;
 
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.Marker;
@@ -21,7 +21,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
-@Plugin(name = "MarkerBasedBurstFilter", category = Node.CATEGORY, elementType = Filter.ELEMENT_TYPE, printObject = true)
+@Plugin(name = "MarkerBasedBurstFilter", category = Node.CATEGORY, elementType = Filter.ELEMENT_TYPE)
 public class MarkerBasedBurstFilter extends AbstractFilter {
     @Plugin(name = "MatchMarker", category = Node.CATEGORY, printObject = true)
     public record MatchMarker(String marker, long intervalNanos, int maxLogs) {

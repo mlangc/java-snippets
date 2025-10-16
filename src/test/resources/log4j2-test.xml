@@ -4,16 +4,36 @@
         <RoutingFilter>
             <FilterRoute>
                 <FilterRouteIf>
-                    <MarkerFilter marker="throttled_10"/>
+                    <MarkerFilter marker="green"/>
                 </FilterRouteIf>
                 <FilterRouteThen>
-                    <BurstFilter rate="10" burst="100"/>
+                    <RegexFilter regex=".*green.*" useRawMsg="true"/>
                 </FilterRouteThen>
             </FilterRoute>
+
+            <FilterRoute>
+                <FilterRouteIf>
+                    <MarkerFilter marker="yellow"/>
+                </FilterRouteIf>
+                <FilterRouteThen>
+                    <RegexFilter regex=".*yellow.*" useRawMsg="true"/>
+                </FilterRouteThen>
+            </FilterRoute>
+
+            <FilterRoute>
+                <FilterRouteIf>
+                    <MarkerFilter marker="red"/>
+                </FilterRouteIf>
+                <FilterRouteThen>
+                    <RegexFilter regex=".*red.*" useRawMsg="true"/>
+                </FilterRouteThen>
+            </FilterRoute>
+
             <DefaultFilterRoute>
-                <DenyFilter/>
+                <RegexFilter regex=".*blue.*" useRawMsg="true"/>
             </DefaultFilterRoute>
         </RoutingFilter>
+
         <MarkerBasedBurstFilter>
             <MatchMarker marker="globallyThrottled1" interval="1" timeUnit="MILLISECONDS" maxLogs="1"/>
             <MatchMarker marker="globallyThrottled2" interval="1" timeUnit="MILLISECONDS" maxLogs="2"/>
@@ -31,7 +51,7 @@
             <AppenderRef ref="Console"/>
         </Root>
 
-        <Logger name="at.mlangc.log4j2.MarkerBasedBurstFilterTest">
+        <Logger name="at.mlangc.log4j2.throttling.MarkerBasedBurstFilterTest">
             <AppenderRef ref="CountingNopAppender"/>
             <MarkerBasedBurstFilter>
                 <MatchMarker marker="loggerLocallyThrottled1" interval="1" maxLogs="1" timeUnit="MILLISECONDS"/>

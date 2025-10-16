@@ -1,4 +1,4 @@
-package at.mlangc.log4j2;
+package at.mlangc.log4j2.throttling;
 
 import org.slf4j.Marker;
 import org.slf4j.MarkerFactory;

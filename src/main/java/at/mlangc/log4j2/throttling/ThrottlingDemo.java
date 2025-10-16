@@ -1,10 +1,10 @@
-package at.mlangc.log4j2;
+package at.mlangc.log4j2.throttling;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class LogDemo {
-    private static final Logger LOG = LoggerFactory.getLogger(LogDemo.class);
+public class ThrottlingDemo {
+    private static final Logger LOG = LoggerFactory.getLogger(ThrottlingDemo.class);
 
     @SuppressWarnings("LoggingSimilarMessage")
     static void main() {

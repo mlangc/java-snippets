@@ -1,6 +1,7 @@
-package at.mlangc.log4j2;
+package at.mlangc.log4j2.throttling;
 
 
+import at.mlangc.log4j2.MarkerBasedCountingNopAppender;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.Marker;

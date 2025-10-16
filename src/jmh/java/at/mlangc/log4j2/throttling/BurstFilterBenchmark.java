@@ -1,5 +1,6 @@
-package at.mlangc.log4j2;
+package at.mlangc.log4j2.throttling;
 
+import at.mlangc.log4j2.throttling.MarkerBasedBurstFilter;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Marker;
