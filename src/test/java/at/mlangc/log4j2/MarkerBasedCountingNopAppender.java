@@ -47,7 +47,7 @@ public class MarkerBasedCountingNopAppender extends AbstractAppender {
         return res;
     }
 
-    public static MarkerBasedCountingNopAppender getListAppender(final String name) {
+    public static MarkerBasedCountingNopAppender getFromConfiguration(final String name) {
         return LoggerContext.getContext(false).getConfiguration().getAppender(name);
     }
 

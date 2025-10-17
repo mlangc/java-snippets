@@ -29,9 +29,14 @@
                 </FilterRouteThen>
             </FilterRoute>
 
-            <DefaultFilterRoute>
-                <RegexFilter regex=".*blue.*" useRawMsg="true"/>
-            </DefaultFilterRoute>
+            <FilterRoute>
+                <FilterRouteIf>
+                    <MarkerFilter marker="blue"/>
+                </FilterRouteIf>
+                <FilterRouteThen>
+                    <RegexFilter regex=".*blue.*" useRawMsg="true"/>
+                </FilterRouteThen>
+            </FilterRoute>
         </RoutingFilter>
 
         <MarkerBasedBurstFilter>
@@ -45,6 +50,9 @@
             <PatternLayout pattern="%d{HH:mm:ss.SSS} %-5level %c{2} - %msg%n"/>
         </Console>
         <MarkerBasedCountingNopAppender name="CountingNopAppender"/>
+        <List name="ThrottledListAppender">
+            <BurstFilter rate="1" maxBurst="10000"/>
+        </List>
     </Appenders>
     <Loggers>
         <Root level="info">
@@ -57,8 +65,14 @@
                 <MatchMarker marker="loggerLocallyThrottled1" interval="1" maxLogs="1" timeUnit="MILLISECONDS"/>
             </MarkerBasedBurstFilter>
         </Logger>
+
         <Logger name="at.mlangc.log4j2.Other">
             <AppenderRef ref="CountingNopAppender"/>
+        </Logger>
+
+        <Logger name="at.mlangc.log4j2.routing.RoutingFilterTest">
+            <AppenderRef ref="CountingNopAppender"/>
+            <AppenderRef ref="ThrottledListAppender"/>
         </Logger>
     </Loggers>
 </Configuration>

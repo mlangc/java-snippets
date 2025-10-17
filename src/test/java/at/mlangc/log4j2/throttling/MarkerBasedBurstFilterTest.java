@@ -39,7 +39,7 @@ class MarkerBasedBurstFilterTest {
         }
     }
 
-    private final MarkerBasedCountingNopAppender countingNopAppender = MarkerBasedCountingNopAppender.getListAppender("CountingNopAppender");
+    private final MarkerBasedCountingNopAppender countingNopAppender = MarkerBasedCountingNopAppender.getFromConfiguration("CountingNopAppender");
 
     private final Random random = new Random(313);
 
