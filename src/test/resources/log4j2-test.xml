@@ -4,7 +4,7 @@
         <RoutingFilter>
             <FilterRoute>
                 <FilterRouteIf>
-                    <MarkerFilter marker="green"/>
+                    <MarkerFilter marker="green" onMatch="ACCEPT"/>
                 </FilterRouteIf>
                 <FilterRouteThen>
                     <RegexFilter regex=".*green.*" useRawMsg="true"/>
@@ -13,7 +13,7 @@
 
             <FilterRoute>
                 <FilterRouteIf>
-                    <MarkerFilter marker="yellow"/>
+                    <MarkerFilter marker="yellow" onMatch="ACCEPT"/>
                 </FilterRouteIf>
                 <FilterRouteThen>
                     <RegexFilter regex=".*yellow.*" useRawMsg="true"/>
@@ -22,7 +22,7 @@
 
             <FilterRoute>
                 <FilterRouteIf>
-                    <MarkerFilter marker="red"/>
+                    <MarkerFilter marker="red" onMatch="ACCEPT"/>
                 </FilterRouteIf>
                 <FilterRouteThen>
                     <RegexFilter regex=".*red.*" useRawMsg="true"/>
@@ -31,12 +31,16 @@
 
             <FilterRoute>
                 <FilterRouteIf>
-                    <MarkerFilter marker="blue"/>
+                    <MarkerFilter marker="blue" onMatch="ACCEPT"/>
                 </FilterRouteIf>
                 <FilterRouteThen>
                     <RegexFilter regex=".*blue.*" useRawMsg="true"/>
                 </FilterRouteThen>
             </FilterRoute>
+
+            <DefaultFilterRoute>
+                <RegexFilter regex=".*(black|grey|white).*" useRawMsg="true"/>
+            </DefaultFilterRoute>
         </RoutingFilter>
 
         <MarkerBasedBurstFilter>

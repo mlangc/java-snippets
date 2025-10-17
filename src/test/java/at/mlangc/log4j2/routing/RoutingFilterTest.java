@@ -67,16 +67,14 @@ class RoutingFilterTest {
         LOG.info(GREEN, "brown grass");
         LOG.info(BLUE, "red sky");
         LOG.info(YELLOW, "blue submarine");
-
         assertThat(throttledListAppender.getEvents()).isEmpty();
-    }
 
-    @Test
-    void logsWithoutMarkerShouldNotBeFiltered() {
-        LOG.info("color blind");
-        assertThat(throttledListAppender.getEvents())
-                .hasSize(1)
-                .anySatisfy(evt -> assertThat(evt.getMessage().getFormattedMessage()).contains("color blind"));
+        LOG.info("all is grey");
+        LOG.info("black as midnight on a moonless night");
+        assertThat(throttledListAppender.getEvents()).hasSize(2);
 
+        throttledListAppender.clear();
+        LOG.info("colors, give me colors");
+        assertThat(throttledListAppender.getEvents()).isEmpty();
     }
 }
