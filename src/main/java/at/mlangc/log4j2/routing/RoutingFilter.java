@@ -213,6 +213,12 @@ public class RoutingFilter extends AbstractLifeCycle implements Filter {
 
     @Override
     public Result filter(LogEvent event) {
-        return null;
+        for (FilterRoute filterRoute : filterRoutes) {
+            if (Result.ACCEPT.equals(filterRoute.filterRouteIf().filter().filter(event))) {
+                return filterRoute.filterRouteThen().filter().filter(event);
+            }
+        }
+
+        return defaultFilterRoute.filter().filter(event);
     }
 }

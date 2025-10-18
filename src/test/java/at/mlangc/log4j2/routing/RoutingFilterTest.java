@@ -12,33 +12,25 @@ import org.apache.logging.log4j.core.filter.CompositeFilter;
 import org.apache.logging.log4j.core.filter.MarkerFilter;
 import org.apache.logging.log4j.core.filter.RegexFilter;
 import org.apache.logging.log4j.core.test.appender.ListAppender;
+import org.apache.logging.log4j.core.test.junit.LoggerContextSource;
+import org.apache.logging.log4j.core.test.junit.Named;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+@LoggerContextSource("RoutingFilterTest.xml")
 class RoutingFilterTest {
-    private static final Logger LOG = LogManager.getLogger(RoutingFilterTest.class);
-
     static final Marker COLORED = MarkerManager.getMarker("color");
     static final Marker RED = MarkerManager.getMarker("red").addParents(COLORED);
     static final Marker YELLOW = MarkerManager.getMarker("yellow").addParents(COLORED);
     static final Marker GREEN = MarkerManager.getMarker("green").addParents(COLORED);
     static final Marker BLUE = MarkerManager.getMarker("blue").addParents(COLORED);
 
-    private final ListAppender throttledListAppender = ListAppender.getListAppender("ThrottledListAppender");
+    private final ListAppender throttledListAppender;
+    private final LoggerContext loggerContext;
 
-    @Test
-    void xmlConfigShouldBeParsedAsIntended() {
-        assertThat(getLo4jConfiguration().getFilter())
-                .isInstanceOfSatisfying(CompositeFilter.class, compositeFilter -> {
-                    assertThat(compositeFilter.getFiltersArray()).anySatisfy(filter -> {
-                        assertThat(filter).isInstanceOfSatisfying(RoutingFilter.class, routingFilter -> {
-                            assertThat(routingFilter.filterRoutes()).allSatisfy(filterRoute -> {
-                                assertThat(filterRoute.filterRouteIf().filter()).isInstanceOf(MarkerFilter.class);
-                                assertThat(filterRoute.filterRouteThen().filter()).isInstanceOf(RegexFilter.class);
-                            });
-                        });
-                    });
-                });
+    RoutingFilterTest(LoggerContext loggerContext, @Named("ThrottledListAppender") ListAppender throttledListAppender) {
+        this.loggerContext = loggerContext;
+        this.throttledListAppender = throttledListAppender;
     }
 
     @BeforeEach
@@ -46,16 +38,14 @@ class RoutingFilterTest {
         throttledListAppender.clear();
     }
 
-    private static Configuration getLo4jConfiguration() {
-        return LoggerContext.getContext(false).getConfiguration();
-    }
-
     @Test
     void logsShouldBeFilteredBasedOnTheirColorMarker() {
-        LOG.info(RED, "red lips");
-        LOG.info(GREEN, "green grass");
-        LOG.info(BLUE, "blue sky");
-        LOG.info(YELLOW, "yellow submarine");
+        var log = loggerContext.getLogger(getClass().getCanonicalName() + ".Colored");
+
+        log.info(RED, "red lips");
+        log.info(GREEN, "green grass");
+        log.info(BLUE, "blue sky");
+        log.info(YELLOW, "yellow submarine");
 
 
         assertThat(throttledListAppender.getEvents())
@@ -63,18 +53,18 @@ class RoutingFilterTest {
                 .hasSize(4);
 
         throttledListAppender.clear();
-        LOG.info(RED, "blue lips");
-        LOG.info(GREEN, "brown grass");
-        LOG.info(BLUE, "red sky");
-        LOG.info(YELLOW, "blue submarine");
+        log.info(RED, "blue lips");
+        log.info(GREEN, "brown grass");
+        log.info(BLUE, "red sky");
+        log.info(YELLOW, "blue submarine");
         assertThat(throttledListAppender.getEvents()).isEmpty();
 
-        LOG.info("all is grey");
-        LOG.info("black as midnight on a moonless night");
+        log.info("all is grey");
+        log.info("black as midnight on a moonless night");
         assertThat(throttledListAppender.getEvents()).hasSize(2);
 
         throttledListAppender.clear();
-        LOG.info("colors, give me colors");
+        log.info("colors, give me colors");
         assertThat(throttledListAppender.getEvents()).isEmpty();
     }
 }

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} %-5level %c{2}:%markerSimpleName - %msg%n"/>
+        </Console>
+        <MarkerBasedCountingNopAppender name="CountingNopAppender"/>
+        <List name="ThrottledListAppender">
+            <BurstFilter rate="1" maxBurst="10000"/>
+        </List>
+    </Appenders>
+    <Loggers>
+        <Root level="info">
+            <AppenderRef ref="Console"/>
+        </Root>
+
+        <Logger name="at.mlangc.log4j2.routing.RoutingFilterTest.Colored">
+            <RoutingFilter>
+                <FilterRoute>
+                    <FilterRouteIf>
+                        <MarkerFilter marker="green" onMatch="ACCEPT"/>
+                    </FilterRouteIf>
+                    <FilterRouteThen>
+                        <RegexFilter regex=".*green.*" useRawMsg="true"/>
+                    </FilterRouteThen>
+                </FilterRoute>
+
+                <FilterRoute>
+                    <FilterRouteIf>
+                        <MarkerFilter marker="yellow" onMatch="ACCEPT"/>
+                    </FilterRouteIf>
+                    <FilterRouteThen>
+                        <RegexFilter regex=".*yellow.*" useRawMsg="true"/>
+                    </FilterRouteThen>
+                </FilterRoute>
+
+                <FilterRoute>
+                    <FilterRouteIf>
+                        <MarkerFilter marker="red" onMatch="ACCEPT"/>
+                    </FilterRouteIf>
+                    <FilterRouteThen>
+                        <RegexFilter regex=".*red.*" useRawMsg="true"/>
+                    </FilterRouteThen>
+                </FilterRoute>
+
+                <FilterRoute>
+                    <FilterRouteIf>
+                        <MarkerFilter marker="blue" onMatch="ACCEPT"/>
+                    </FilterRouteIf>
+                    <FilterRouteThen>
+                        <RegexFilter regex=".*blue.*" useRawMsg="true"/>
+                    </FilterRouteThen>
+                </FilterRoute>
+
+                <DefaultFilterRoute>
+                    <RegexFilter regex=".*(black|grey|white).*" useRawMsg="true"/>
+                </DefaultFilterRoute>
+            </RoutingFilter>
+
+            <AppenderRef ref="CountingNopAppender"/>
+            <AppenderRef ref="ThrottledListAppender"/>
+        </Logger>
+    </Loggers>
+</Configuration>
