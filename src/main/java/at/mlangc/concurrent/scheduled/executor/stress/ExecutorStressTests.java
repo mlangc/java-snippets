@@ -16,30 +16,11 @@ public class ExecutorStressTests {
         scheduleDelayedByCpuStarvation(1, -1);
     }
 
-    interface Ticker {
-        long readNanos();
-
-        default long readMillis() {
-            return read(TimeUnit.MILLISECONDS);
-        }
-
-        default long read(TimeUnit timeUnit) {
-            return timeUnit.convert(readNanos(), TimeUnit.NANOSECONDS);
-        }
-
-        default Ticker resetZeroToNow() {
-            var now = readNanos();
-            return () -> readNanos() - now;
-        }
-
-        Ticker SYSTEM = System::nanoTime;
-    }
-
     static abstract class StressTest {
-        final Ticker ticker = getOrCreateTicker();
+        final ExecutorStressHelpers.Ticker ticker = getOrCreateTicker();
 
-        Ticker getOrCreateTicker() {
-            return Ticker.SYSTEM;
+        ExecutorStressHelpers.Ticker getOrCreateTicker() {
+            return ExecutorStressHelpers.Ticker.SYSTEM;
         }
 
         ScheduledExecutorService getOrCreateExecutor() {

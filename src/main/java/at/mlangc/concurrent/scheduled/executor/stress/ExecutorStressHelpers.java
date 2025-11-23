@@ -7,6 +7,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.IntStream;
 
@@ -86,5 +87,24 @@ public class ExecutorStressHelpers {
             Thread.currentThread().interrupt();
             throw new UncheckedInterruptedException(e);
         }
+    }
+
+    interface Ticker {
+        long readNanos();
+
+        default long readMillis() {
+            return read(TimeUnit.MILLISECONDS);
+        }
+
+        default long read(TimeUnit timeUnit) {
+            return timeUnit.convert(readNanos(), TimeUnit.NANOSECONDS);
+        }
+
+        default Ticker resetZeroToNow() {
+            var now = readNanos();
+            return () -> readNanos() - now;
+        }
+
+        Ticker SYSTEM = System::nanoTime;
     }
 }
