@@ -15,9 +15,13 @@ import java.util.concurrent.TimeUnit;
 @Warmup(iterations = 3, time = 100, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 10, time = 200, timeUnit = TimeUnit.MILLISECONDS)
 @BenchmarkMode(Mode.Throughput)
+@OutputTimeUnit(TimeUnit.MILLISECONDS)
+@OperationsPerInvocation(GcdBenchmark.NUM_GCDS)
 public class GcdBenchmark {
+    public static final int NUM_GCDS = 1000;
+
     private final Random rng = new Random(42);
-    private final long[] longs = rng.longs(2000, Long.MIN_VALUE + 1, Long.MAX_VALUE).map(Math::abs).toArray();
+    private final long[] longs = rng.longs(2 * NUM_GCDS, Long.MIN_VALUE + 1, Long.MAX_VALUE).map(Math::abs).toArray();
 
     @Benchmark
     public void bigInteger(Blackhole blackhole) {
