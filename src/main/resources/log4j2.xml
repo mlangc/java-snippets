@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} %-5level %c{1.1.1.*} - %msg%n"/>
+        </Console>
+
+        <DynatraceGenericLogIngestAppender name="Dynatrace"
+                                           activeGateUrl="https://${env:DYNATRACE_TENANT_ID}.dev.dynatracelabs.com/api/v2/logs/ingest"
+                                           token="${env:DYNATRACE_API_TOKEN}"
+                                           sslValidation="false">
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} %-5level %c{1.1.1.*} - %msg%n"/>
+            <Property name="application.name">JavaSnippets</Property>
+            <Property name="user.name">${sys:user.name}</Property>
+            <Property name="java.version">${sys:java.version}</Property>
+            <Property name="java.vendor">${sys:java.vendor}</Property>
+            <Property name="os.name">${sys:os.name}</Property>
+            <Property name="os.arch">${sys:os.arch}</Property>
+            <Property name="os.version">${sys:os.version}</Property>
+        </DynatraceGenericLogIngestAppender>
+    </Appenders>
+    <Loggers>
+        <Root level="info">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="Dynatrace"/>
+        </Root>
+
+        <Logger name="org.apache.kafka" level="warn"/>
+    </Loggers>
+</Configuration>
+
