@@ -33,9 +33,9 @@ dependencies {
     implementation 'org.apache.logging.log4j:log4j-core:_'
     implementation 'org.apache.logging.log4j:log4j-slf4j2-impl:_'
 
-    implementation 'io.github.michaljonko:dynatrace-log4j2-appender:0.0.7'
+    implementation 'io.github.michaljonko:dynatrace-log4j2-appender:_'
 
-    implementation 'io.micrometer:micrometer-registry-dynatrace:1.16.0'
+    implementation 'io.micrometer:micrometer-registry-dynatrace:_'
 
 
     jmh 'org.openjdk.jmh:jmh-core:_'
