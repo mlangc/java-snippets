@@ -44,18 +44,21 @@ import java.util.stream.IntStream;
 public class Kafka19012Demo implements AutoCloseable {
     private static final Logger LOG = LogManager.getLogger(Kafka19012Demo.class);
 
+    static final int CONSUMER_THREADS = 2;
+    static final int PRODUCER_THREADS = 4;
     static final short REPLICATION_FACTOR = 1;
-    static final int NUM_PARTITIONS = 3;
+    static final int NUM_PARTITIONS = 9;
     static final String BOOTSTRAP_SERVERS = "localhost:9092";
     static final List<String> TOPIC_NAMES = List.of("test0", "test1", "test2");
     static final long MAX_OFFSET_LAG = 1_000_000;
     static final int MAX_SENDS_IN_FLIGHT = 500;
+    static final int MAX_BLOCK_MILLIS = 250;
 
     static final Set<TopicPartition> TOPIC_PARTITIONS = TOPIC_NAMES.stream()
             .flatMap(topic -> IntStream.range(0, NUM_PARTITIONS).mapToObj(partition -> new TopicPartition(topic, partition)))
             .collect(Collectors.toUnmodifiableSet());
 
-    public static final Duration CONSUMER_POLL_DURATION = Duration.ofMillis(250);
+    public static final Duration CONSUMER_POLL_DURATION = Duration.ofMillis(MAX_BLOCK_MILLIS);
 
     private final MeterRegistry meterRegistry = new DynatraceMeterRegistry(
             new DynatraceConfig() {
@@ -131,9 +134,10 @@ public class Kafka19012Demo implements AutoCloseable {
     private void waitForExternalStopSignal() throws InterruptedException {
         var latch = new CountDownLatch(1);
 
-        var stopSignalFile = Path.of(System.getProperty("user.home"), getClass() + ".stop.signal").toFile();
+        var stopSignalFile = Path.of(System.getProperty("user.home"), getClass().getSimpleName() + ".stop.signal").toFile();
 
         Thread.startVirtualThread(() -> {
+            LOG.info("Waiting for stop signal at {}", stopSignalFile.getAbsolutePath());
             IO.readln("Press enter to stop or touch " + stopSignalFile.getAbsolutePath());
             latch.countDown();
         });
@@ -166,12 +170,14 @@ public class Kafka19012Demo implements AutoCloseable {
         kafkaProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, IntegerDeserializer.class.getName());
         kafkaProps.put(ConsumerConfig.GROUP_ID_CONFIG, getClass().getSimpleName());
         kafkaProps.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, CompressionType.NONE.name);
+        kafkaProps.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, MAX_BLOCK_MILLIS);
+        kafkaProps.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, false);
+        kafkaProps.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 10);
         /*
         kafkaProps.put(ProducerConfig.BATCH_SIZE_CONFIG, 786432);
         kafkaProps.put(ProducerConfig.BUFFER_MEMORY_CONFIG, 268435456);
         kafkaProps.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, 10200);
         kafkaProps.put(ProducerConfig.LINGER_MS_CONFIG, 10);
-        kafkaProps.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, 15000);
         kafkaProps.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 10);
         kafkaProps.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, 52428800);
         kafkaProps.put(ProducerConfig.PARTITIONER_ADPATIVE_PARTITIONING_ENABLE_CONFIG, true);
@@ -207,7 +213,7 @@ public class Kafka19012Demo implements AutoCloseable {
             return;
         }
 
-        asyncProducers = IntStream.range(0, 4)
+        asyncProducers = IntStream.range(0, PRODUCER_THREADS)
                 .mapToObj(ignore -> CompletableFuture.supplyAsync(this::keepProducingRandomly, executor))
                 .toList();
 
@@ -232,7 +238,7 @@ public class Kafka19012Demo implements AutoCloseable {
             return;
         }
 
-        asyncConsumers = IntStream.range(0, 3)
+        asyncConsumers = IntStream.range(0, CONSUMER_THREADS)
                 .mapToObj(_ -> CompletableFuture.supplyAsync(this::consumerLoop, executor))
                 .toList();
 
@@ -245,7 +251,7 @@ public class Kafka19012Demo implements AutoCloseable {
         }
 
         var consumed = asyncConsumers.stream()
-                .mapToLong(f -> f.orTimeout(1, TimeUnit.SECONDS).join())
+                .mapToLong(f -> f.orTimeout(5, TimeUnit.SECONDS).join())
                 .sum();
 
         asyncConsumers = null;
@@ -300,9 +306,11 @@ public class Kafka19012Demo implements AutoCloseable {
     }
 
     private long consumerLoop() {
-        try (var consumer = new KafkaConsumer<String, Integer>(kafkaProps); var consumerMetrics = new KafkaClientMetrics(consumer)) {
-            consumerMetrics.bindTo(meterRegistry);
+        var consumer = new KafkaConsumer<String, Integer>(kafkaProps);
+        var consumerMetrics = new KafkaClientMetrics(consumer);
 
+        try {
+            consumerMetrics.bindTo(meterRegistry);
             var counter = 0L;
             consumer.subscribe(TOPIC_NAMES, new ConsumerRebalanceListener() {
                 @Override
@@ -333,6 +341,8 @@ public class Kafka19012Demo implements AutoCloseable {
                                         .tag("partition", "" + tp.partition())
                                         .tag("compression", "" + kafkaProps.get(ProducerConfig.COMPRESSION_TYPE_CONFIG))
                                         .tag("max_sends_in_flight", "" + MAX_SENDS_IN_FLIGHT)
+                                        .tag("consumer_threads", "" + CONSUMER_THREADS)
+                                        .tag("producer_threads", "" + PRODUCER_THREADS)
                                         .register(meterRegistry));
 
                         mmCounter.increment();
@@ -355,6 +365,9 @@ public class Kafka19012Demo implements AutoCloseable {
             }
 
             return counter;
+        } finally {
+            consumerMetrics.close();
+            consumer.close(Duration.ofSeconds(1));
         }
     }
 
@@ -375,6 +388,8 @@ public class Kafka19012Demo implements AutoCloseable {
                                 .tag("partition", "" + tp.partition())
                                 .tag("compression", "" + kafkaProps.get(ProducerConfig.COMPRESSION_TYPE_CONFIG))
                                 .tag("max_sends_in_flight", "" + MAX_SENDS_IN_FLIGHT)
+                                .tag("producer_threads", "" + PRODUCER_THREADS)
+                                .tag("consumer_threads", "" + CONSUMER_THREADS)
                                 .baseUnit(BaseUnits.MESSAGES)
                                 .register(meterRegistry));
 
@@ -388,10 +403,10 @@ public class Kafka19012Demo implements AutoCloseable {
                         break producerLoop;
                     }
 
-                    sleepMillis = Math.min(250, 2 * sleepMillis);
+                    sleepMillis = Math.min(MAX_BLOCK_MILLIS, 2 * sleepMillis);
                 }
 
-                while (!sendsInFlightSemaphore.tryAcquire(250, TimeUnit.MILLISECONDS)) {
+                while (!sendsInFlightSemaphore.tryAcquire(MAX_BLOCK_MILLIS, TimeUnit.MILLISECONDS)) {
                     if (!keepProducing.get()) {
                         break producerLoop;
                     }
@@ -427,11 +442,11 @@ public class Kafka19012Demo implements AutoCloseable {
         keepProducing.set(false);
         keepConsuming.set(false);
 
-        producerMetrics.close();
         adminClient.close();
-        producer.close();
-        executor.shutdown();
+        producer.close(Duration.ofSeconds(5));
+        producerMetrics.close();
         meterRegistry.close();
+        executor.shutdown();
 
         if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
             LOG.error("Executor termination timed out");
