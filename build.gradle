@@ -23,6 +23,8 @@ dependencies {
     implementation 'com.google.code.findbugs:jsr305:_'
     testImplementation 'org.awaitility:awaitility:_'
 
+    implementation 'io.micrometer:micrometer-registry-dynatrace:1.16.0'
+
     implementation 'org.apache.commons:commons-numbers-core:_'
 
     jmh 'org.openjdk.jmh:jmh-core:_'

@@ -1,7 +1,10 @@
 package at.mlangc.concurrent.scheduled.executor.stress;
 
+import at.mlangc.micrometer.MicrometerRegistryProvider;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
+import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -12,8 +15,7 @@ import static java.lang.System.out;
 public class ExecutorStressTests {
     static void main() throws Exception {
         Locale.setDefault(Locale.ENGLISH);
-
-        scheduleDelayedByCpuStarvation(1, -1);
+        new WillScheduleAtFixedRateReadjust().run();
     }
 
     static abstract class StressTest {
@@ -30,11 +32,16 @@ public class ExecutorStressTests {
         abstract void run(ScheduledExecutorService executor) throws Exception;
 
         final void run() throws Exception {
+            var meterRegistry = MicrometerRegistryProvider.newDynatraceMeterRegistry();
             var executor = getOrCreateExecutor();
+            var metrics = new ExecutorServiceMetrics(executor, getClass().getSimpleName(), "java.snippets", List.of());
+            metrics.bindTo(meterRegistry);
+
             try {
                 run(executor);
             } finally {
                 shutdownExecutor(executor);
+                meterRegistry.close();
             }
         }
 
