@@ -1,5 +1,13 @@
 package at.mlangc.kafka;
 
+import io.micrometer.core.instrument.Clock;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.binder.BaseUnits;
+import io.micrometer.core.instrument.binder.kafka.KafkaClientMetrics;
+import io.micrometer.dynatrace.DynatraceApiVersion;
+import io.micrometer.dynatrace.DynatraceConfig;
+import io.micrometer.dynatrace.DynatraceMeterRegistry;
 import org.apache.commons.lang3.exception.UncheckedInterruptedException;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.AdminClient;
@@ -13,13 +21,18 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.errors.WakeupException;
+import org.apache.kafka.common.record.CompressionType;
 import org.apache.kafka.common.serialization.IntegerDeserializer;
 import org.apache.kafka.common.serialization.IntegerSerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jspecify.annotations.Nullable;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
@@ -36,16 +49,54 @@ public class Kafka19012Demo implements AutoCloseable {
     static final String BOOTSTRAP_SERVERS = "localhost:9092";
     static final List<String> TOPIC_NAMES = List.of("test0", "test1", "test2");
     static final long MAX_OFFSET_LAG = 1_000_000;
+    static final int MAX_SENDS_IN_FLIGHT = 500;
 
     static final Set<TopicPartition> TOPIC_PARTITIONS = TOPIC_NAMES.stream()
             .flatMap(topic -> IntStream.range(0, NUM_PARTITIONS).mapToObj(partition -> new TopicPartition(topic, partition)))
             .collect(Collectors.toUnmodifiableSet());
 
-    public static final Duration CONSUMER_POLL_DURATION = Duration.ofMillis(100);
+    public static final Duration CONSUMER_POLL_DURATION = Duration.ofMillis(250);
+
+    private final MeterRegistry meterRegistry = new DynatraceMeterRegistry(
+            new DynatraceConfig() {
+                @Override
+                public DynatraceApiVersion apiVersion() {
+                    return DynatraceApiVersion.V2;
+                }
+
+                @Override
+                public @Nullable String get(String s) {
+                    return switch (s) {
+                        case "dynatrace.connectTimeout" -> "5s";
+                        default -> null;
+                    };
+                }
+
+                @Override
+                public String deviceId() {
+                    try {
+                        return InetAddress.getLocalHost().getHostName();
+                    } catch (UnknownHostException e) {
+                        LOG.warn("Error loading hostname", e);
+                        return "unknown";
+                    }
+                }
+
+                @Override
+                public String uri() {
+                    return "https://" + System.getenv("DYNATRACE_TENANT_ID") + ".dev.dynatracelabs.com/api/v2/metrics/ingest";
+                }
+
+                @Override
+                public String apiToken() {
+                    return System.getenv("DYNATRACE_API_TOKEN");
+                }
+            }, Clock.SYSTEM);
 
     private final AdminClient adminClient;
     private final KafkaProducer<String, Integer> producer;
-    private final List<KafkaConsumer<String, Integer>> consumers;
+    private final KafkaClientMetrics producerMetrics;
+    private final Semaphore sendsInFlightSemaphore = new Semaphore(MAX_SENDS_IN_FLIGHT);
 
     private final AtomicBoolean keepProducing = new AtomicBoolean();
     private final AtomicBoolean keepConsuming = new AtomicBoolean();
@@ -53,11 +104,15 @@ public class Kafka19012Demo implements AutoCloseable {
     private final ExecutorService executor = Executors.newThreadPerTaskExecutor(
             Thread.ofVirtual().name(Kafka19012Demo.class.getSimpleName(), 0).factory());
 
-    private record FlowStats(long generation, long nanoTime, long consumerLag, long totalConsumed) { }
+
+    private record FlowStats(long generation, long nanoTime, long consumerLag, long totalConsumed) {}
+
     private volatile FlowStats flowStats = new FlowStats(0, System.nanoTime(), 0, 0);
     private final AtomicBoolean updatingFlowStats = new AtomicBoolean();
 
     private final LongAdder consumedRecords = new LongAdder();
+
+    private final Properties kafkaProps = new Properties();
 
     private List<CompletableFuture<Long>> asyncProducers;
     private List<CompletableFuture<Long>> asyncConsumers;
@@ -67,24 +122,66 @@ public class Kafka19012Demo implements AutoCloseable {
             demo.prepareTopics();
             demo.startProducing();
             demo.startConsuming();
-            IO.readln("Press enter to stop");
+            demo.waitForExternalStopSignal();
             demo.stopProducing();
             demo.stopConsuming();
         }
     }
 
+    private void waitForExternalStopSignal() throws InterruptedException {
+        var latch = new CountDownLatch(1);
+
+        var stopSignalFile = Path.of(System.getProperty("user.home"), getClass() + ".stop.signal").toFile();
+
+        Thread.startVirtualThread(() -> {
+            IO.readln("Press enter to stop or touch " + stopSignalFile.getAbsolutePath());
+            latch.countDown();
+        });
+
+        Thread.startVirtualThread(() -> {
+            while (!Thread.currentThread().isInterrupted()) {
+                if (stopSignalFile.exists()) {
+                    LOG.info("Stop signal file detected at {}", stopSignalFile.getAbsolutePath());
+                    break;
+                }
+
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+
+            latch.countDown();
+        });
+
+        latch.await();
+    }
+
     Kafka19012Demo() {
-        Properties kafkaProps = new Properties();
         kafkaProps.put(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, BOOTSTRAP_SERVERS);
         kafkaProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
         kafkaProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, IntegerSerializer.class.getName());
         kafkaProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
         kafkaProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, IntegerDeserializer.class.getName());
         kafkaProps.put(ConsumerConfig.GROUP_ID_CONFIG, getClass().getSimpleName());
+        kafkaProps.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, CompressionType.NONE.name);
+        /*
+        kafkaProps.put(ProducerConfig.BATCH_SIZE_CONFIG, 786432);
+        kafkaProps.put(ProducerConfig.BUFFER_MEMORY_CONFIG, 268435456);
+        kafkaProps.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, 10200);
+        kafkaProps.put(ProducerConfig.LINGER_MS_CONFIG, 10);
+        kafkaProps.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, 15000);
+        kafkaProps.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 10);
+        kafkaProps.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, 52428800);
+        kafkaProps.put(ProducerConfig.PARTITIONER_ADPATIVE_PARTITIONING_ENABLE_CONFIG, true);
+        kafkaProps.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 5000);
+        kafkaProps.put(ProducerConfig.RETRIES_CONFIG, 1);*/
 
         this.adminClient = AdminClient.create(kafkaProps);
         this.producer = new KafkaProducer<>(kafkaProps);
-        this.consumers = IntStream.range(0, NUM_PARTITIONS * TOPIC_NAMES.size()).mapToObj(_ -> new KafkaConsumer<String, Integer>(kafkaProps)).toList();
+        this.producerMetrics = new KafkaClientMetrics(producer);
+        this.producerMetrics.bindTo(meterRegistry);
     }
 
     void prepareTopics() throws ExecutionException, InterruptedException, TimeoutException {
@@ -101,6 +198,8 @@ public class Kafka19012Demo implements AutoCloseable {
                 .collect(Collectors.toUnmodifiableSet());
 
         adminClient.createTopics(topicsToCreate).all().get(1, TimeUnit.SECONDS);
+
+        LOG.info("Topics prepared");
     }
 
     void startProducing() {
@@ -111,6 +210,8 @@ public class Kafka19012Demo implements AutoCloseable {
         asyncProducers = IntStream.range(0, 4)
                 .mapToObj(ignore -> CompletableFuture.supplyAsync(this::keepProducingRandomly, executor))
                 .toList();
+
+        LOG.info("Producers started");
     }
 
     void stopProducing() {
@@ -119,11 +220,11 @@ public class Kafka19012Demo implements AutoCloseable {
         }
 
         var produced = asyncProducers.stream()
-                .mapToLong(f -> f.orTimeout(1, TimeUnit.SECONDS).join())
+                .mapToLong(f -> f.orTimeout(5, TimeUnit.SECONDS).join())
                 .sum();
 
         asyncProducers = null;
-        LOG.info("Produced {} messages", produced);
+        LOG.info("Producers stopped after producing {} messages", produced);
     }
 
     void startConsuming() {
@@ -131,9 +232,11 @@ public class Kafka19012Demo implements AutoCloseable {
             return;
         }
 
-        asyncConsumers = consumers.stream()
-                .map(c -> CompletableFuture.supplyAsync(() -> consumerLoop(c), executor))
+        asyncConsumers = IntStream.range(0, 3)
+                .mapToObj(_ -> CompletableFuture.supplyAsync(this::consumerLoop, executor))
                 .toList();
+
+        LOG.info("Consumers started");
     }
 
     void stopConsuming() {
@@ -141,14 +244,12 @@ public class Kafka19012Demo implements AutoCloseable {
             return;
         }
 
-        consumers.forEach(KafkaConsumer::wakeup);
-
         var consumed = asyncConsumers.stream()
                 .mapToLong(f -> f.orTimeout(1, TimeUnit.SECONDS).join())
                 .sum();
 
         asyncConsumers = null;
-        LOG.info("Consumed {} messages", consumed);
+        LOG.info("Consumers stopped after consuming {} messages", consumed);
     }
 
     private void updateFlowStatsIfNeeded(KafkaConsumer<?, ?> consumer) {
@@ -198,79 +299,119 @@ public class Kafka19012Demo implements AutoCloseable {
         }
     }
 
-    private long consumerLoop(KafkaConsumer<String, Integer> consumer) {
-        var counter = 0L;
-        consumer.subscribe(TOPIC_NAMES, new ConsumerRebalanceListener() {
-            @Override
-            public void onPartitionsRevoked(Collection<TopicPartition> partitions) {
-                LOG.info("{} - Partitions revoked: {}", consumer, partitions);
-            }
+    private long consumerLoop() {
+        try (var consumer = new KafkaConsumer<String, Integer>(kafkaProps); var consumerMetrics = new KafkaClientMetrics(consumer)) {
+            consumerMetrics.bindTo(meterRegistry);
 
-            @Override
-            public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
-                LOG.info("{} - Partitions assigned: {}", consumer, partitions);
-            }
-        });
-
-        try {
-            while (keepConsuming.get()) {
-                var consumerRecords = consumer.poll(CONSUMER_POLL_DURATION);
-
-                var polledRecordsCount = 0L;
-                for (var consumerRecord : consumerRecords) {
-                    polledRecordsCount++;
-
-                    if (!consumerRecord.topic().equals(consumerRecord.key())) {
-                        LOG.error("Get record for topic {} on topic {}", consumerRecord.key(), consumerRecord.topic());
-                    }
-
-                    if (consumerRecord.partition() != consumerRecord.value()) {
-                        LOG.error("Get record for partition {} on partition {}", consumerRecord.value(), consumerRecord.partition());
-                    }
+            var counter = 0L;
+            consumer.subscribe(TOPIC_NAMES, new ConsumerRebalanceListener() {
+                @Override
+                public void onPartitionsRevoked(Collection<TopicPartition> partitions) {
+                    LOG.info("{} - Partitions revoked: {}", consumer, partitions);
                 }
 
-                consumedRecords.add(polledRecordsCount);
-                counter += polledRecordsCount;
-                updateFlowStatsIfNeeded(consumer);
-            }
-        } catch (WakeupException _) {
-            // Just exit the loop
-        } finally {
-            consumer.unsubscribe();
-        }
+                @Override
+                public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
+                    LOG.info("{} - Partitions assigned: {}", consumer, partitions);
+                }
+            });
 
-        return counter;
+            var mmCounters = new HashMap<TopicPartition, Counter>();
+            try {
+                while (keepConsuming.get()) {
+                    var consumerRecords = consumer.poll(CONSUMER_POLL_DURATION);
+
+                    var polledRecordsCount = 0L;
+                    for (var consumerRecord : consumerRecords) {
+                        polledRecordsCount++;
+
+                        var mmCounter = mmCounters.computeIfAbsent(
+                                new TopicPartition(consumerRecord.topic(), consumerRecord.partition()),
+                                tp -> Counter.builder(getClass().getSimpleName() + ".consumed")
+                                        .baseUnit(BaseUnits.MESSAGES)
+                                        .tag("topic", tp.topic())
+                                        .tag("partition", "" + tp.partition())
+                                        .tag("compression", "" + kafkaProps.get(ProducerConfig.COMPRESSION_TYPE_CONFIG))
+                                        .tag("max_sends_in_flight", "" + MAX_SENDS_IN_FLIGHT)
+                                        .register(meterRegistry));
+
+                        mmCounter.increment();
+
+                        if (!consumerRecord.topic().equals(consumerRecord.key())) {
+                            LOG.error("Got record for topic {} on topic {}", consumerRecord.key(), consumerRecord.topic());
+                        }
+
+                        if (consumerRecord.partition() != consumerRecord.value()) {
+                            LOG.error("Got record for partition {} on partition {}", consumerRecord.value(), consumerRecord.partition());
+                        }
+                    }
+
+                    consumedRecords.add(polledRecordsCount);
+                    counter += polledRecordsCount;
+                    updateFlowStatsIfNeeded(consumer);
+                }
+            } catch (WakeupException _) {
+                // Just exit the loop
+            }
+
+            return counter;
+        }
     }
 
     private long keepProducingRandomly() {
         var rng = ThreadLocalRandom.current();
-        var semaphore = new Semaphore(32);
         var counter = new LongAdder();
+        var mmCounters = new HashMap<TopicPartition, Counter>();
 
         try {
-            while (keepProducing.get()) {
+            producerLoop:
+            while (true) {
                 var topic = TOPIC_NAMES.get(rng.nextInt(TOPIC_NAMES.size()));
                 var partition = rng.nextInt(NUM_PARTITIONS);
+
+                var mmCounter = mmCounters.computeIfAbsent(new TopicPartition(topic, partition),
+                        tp -> Counter.builder(getClass().getSimpleName() + ".produced")
+                                .tag("topic", tp.topic())
+                                .tag("partition", "" + tp.partition())
+                                .tag("compression", "" + kafkaProps.get(ProducerConfig.COMPRESSION_TYPE_CONFIG))
+                                .tag("max_sends_in_flight", "" + MAX_SENDS_IN_FLIGHT)
+                                .baseUnit(BaseUnits.MESSAGES)
+                                .register(meterRegistry));
+
                 var producerRecord = new ProducerRecord<>(topic, partition, topic, partition);
 
                 var sleepMillis = 1;
                 while (flowStats.consumerLag > MAX_OFFSET_LAG) {
                     Thread.sleep(1);
-                    sleepMillis = Math.min(1000, 2 * sleepMillis);
+
+                    if (!keepProducing.get()) {
+                        break producerLoop;
+                    }
+
+                    sleepMillis = Math.min(250, 2 * sleepMillis);
                 }
 
-                semaphore.acquire();
+                while (!sendsInFlightSemaphore.tryAcquire(250, TimeUnit.MILLISECONDS)) {
+                    if (!keepProducing.get()) {
+                        break producerLoop;
+                    }
+                }
+
                 producer.send(producerRecord, (_, e) -> {
-                    semaphore.release();
+                    sendsInFlightSemaphore.release();
 
                     if (e != null) {
                         LOG.error("Error sending {}", producerRecord, e);
                     } else {
+                        mmCounter.increment();
                         counter.increment();
                     }
                 });
-            }
 
+                if (!keepProducing.get()) {
+                    break;
+                }
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new UncheckedInterruptedException(e);
@@ -283,12 +424,16 @@ public class Kafka19012Demo implements AutoCloseable {
 
     @Override
     public void close() throws InterruptedException {
+        keepProducing.set(false);
+        keepConsuming.set(false);
+
+        producerMetrics.close();
         adminClient.close();
         producer.close();
-        consumers.forEach(KafkaConsumer::close);
         executor.shutdown();
+        meterRegistry.close();
 
-        if (!executor.awaitTermination(1, TimeUnit.SECONDS)) {
+        if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
             LOG.error("Executor termination timed out");
         }
     }

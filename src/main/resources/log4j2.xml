@@ -17,6 +17,7 @@
             <Property name="os.name">${sys:os.name}</Property>
             <Property name="os.arch">${sys:os.arch}</Property>
             <Property name="os.version">${sys:os.version}</Property>
+            <Property name="log4j.configLocation">${log4j:configLocation}</Property>
         </DynatraceGenericLogIngestAppender>
     </Appenders>
     <Loggers>
