@@ -32,6 +32,8 @@ dependencies {
 
     implementation 'org.apache.commons:commons-numbers-core:_'
 
+    runtimeOnly 'com.lmax:disruptor:_'
+
     jmh 'org.openjdk.jmh:jmh-core:_'
     jmh 'org.openjdk.jmh:jmh-generator-annprocess:_'
     jmh 'org.openjdk.jmh:jmh-generator-bytecode:_'

@@ -1,6 +1,9 @@
 package at.mlangc.concurrent.scheduled.executor.stress;
 
 import org.apache.commons.lang3.mutable.MutableInt;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.List;
 import java.util.concurrent.ForkJoinPool;
@@ -10,10 +13,12 @@ import static at.mlangc.concurrent.scheduled.executor.stress.ExecutorStressHelpe
 import static java.lang.System.out;
 
 public class ScheduledExecutorServiceFixedRateWithPeriodOverflowDemo {
+    private static final Logger LOG = LogManager.getLogger(ScheduledExecutorServiceFixedRateWithPeriodOverflowDemo.class);
+
     static void main() {
         var executor = ForkJoinPool.commonPool();
         var periodMillis = 100;
-        var sleepMillis = List.of(300, 10, 10, 10, 10);
+        var sleepMillis = List.of(330, 10, 10, 10, 10);
         var sleepMillisIndex = new MutableInt();
         var scheduleCounter = new MutableInt();
         var t0 = System.nanoTime();
@@ -23,7 +28,8 @@ public class ScheduledExecutorServiceFixedRateWithPeriodOverflowDemo {
             var scheduleNumber = scheduleCounter.getAndIncrement();
             var idealNanos = t0 + scheduleNumber * TimeUnit.MILLISECONDS.toNanos(periodMillis);
             var diffNanos = actualNanos - idealNanos;
-            out.printf("Executing schedule %03d at %s, which is %s too late%n", scheduleNumber, formatNanos(actualNanos), formatNanos(diffNanos));
+
+            LOG.printf(Level.INFO, "Executing schedule %03d at %s, which is %s too late", scheduleNumber, formatNanos(actualNanos), formatNanos(diffNanos));
 
             milliSleep(sleepMillis.get(sleepMillisIndex.getAndIncrement()));
             if (sleepMillisIndex.intValue() == sleepMillis.size()) sleepMillisIndex.setValue(0);
