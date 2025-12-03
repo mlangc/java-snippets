@@ -1,5 +1,9 @@
 package at.mlangc.concurrent.scheduled.executor.stress;
 
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
@@ -11,15 +15,17 @@ import static at.mlangc.concurrent.scheduled.executor.stress.ExecutorStressHelpe
 import static java.lang.System.out;
 
 public class ScheduledExecutorServiceSubmitGettingInTheWay {
+    private static final Logger LOG = LogManager.getLogger(ScheduledExecutorServiceSubmitGettingInTheWay.class);
+
     static void main() throws ExecutionException, InterruptedException {
-        try (var executor = new ForkJoinPool(2)) {
+        try (var executor = new ForkJoinPool(1)) {
             AtomicLong lastExecution = new AtomicLong(Long.MIN_VALUE);
             AtomicInteger executionCount = new AtomicInteger();
             var t0 = System.nanoTime();
             for (int i = 0; i < 5; i++) {
                 executor.execute(() -> {
                     var t1 = System.nanoTime();
-                    out.printf("Executing t%s at %s, which is %s too late%n", executionCount.getAndIncrement(), formatNanos(t1), formatNanos(t1 - t0));
+                    LOG.printf(Level.INFO, "Executing t%s at %s, which is %s too late", executionCount.getAndIncrement(), formatNanos(t1), formatNanos(t1 - t0));
                     milliSleep(200);
                     lastExecution.updateAndGet(t -> Math.max(t, System.nanoTime()));
                 });
@@ -31,7 +37,7 @@ public class ScheduledExecutorServiceSubmitGettingInTheWay {
                 var tActual = System.nanoTime();
                 var delay = tActual - tIdeal;
                 var delayAfterLastExecution = tActual - lastExecution.get();
-                out.printf("Running s after %s t executions, %s after the last execution and %s too late%n",
+                LOG.printf(Level.INFO, "Running s after %s t executions, %s after the last execution and %s too late",
                         executionCount.get(), formatNanos(delayAfterLastExecution), formatNanos(delay));
             }, delayMillis, TimeUnit.MILLISECONDS);
 
