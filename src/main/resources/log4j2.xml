@@ -1,24 +1,43 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration status="WARN">
+    <Properties>
+        <Property name="pattern" value="%d{HH:mm:ss.SSS} %-5level %logger{1} - %msg%n"/>
+    </Properties>
+
     <Appenders>
         <Console name="Console" target="SYSTEM_OUT">
-            <PatternLayout pattern="%d{HH:mm:ss.SSS} %-5level %c{1} - %msg%n"/>
+            <PatternLayout pattern="${pattern}"/>
         </Console>
 
-        <DynatraceGenericLogIngestAppender name="Dynatrace"
-                                           activeGateUrl="https://${env:DYNATRACE_TENANT_ID}.dev.dynatracelabs.com/api/v2/logs/ingest"
-                                           token="${env:DYNATRACE_API_TOKEN}"
-                                           sslValidation="false">
-            <PatternLayout pattern="%d{HH:mm:ss.SSS} %-5level %c{1} - %msg%n"/>
-            <Property name="application.name">JavaSnippets</Property>
-            <Property name="user.name">${sys:user.name}</Property>
-            <Property name="java.version">${sys:java.version}</Property>
-            <Property name="java.vendor">${sys:java.vendor}</Property>
-            <Property name="os.name">${sys:os.name}</Property>
-            <Property name="os.arch">${sys:os.arch}</Property>
-            <Property name="os.version">${sys:os.version}</Property>
-            <Property name="log4j.configLocation">${log4j:configLocation}</Property>
-        </DynatraceGenericLogIngestAppender>
+        <Select>
+            <EnvironmentArbiter propertyName="DYNATRACE_API_V2_LOGS_INGEST">
+                <AsyncHttp name="Dynatrace" url="${env:DYNATRACE_API_V2_LOGS_INGEST}"
+                           maxBatchBytes="500000" maxBatchLogEvents="50000"
+                           httpSuccessCodes="200,204" httpRetryCodes="429,503"
+                           contentEncoding="gzip">
+                    <Property name="Authorization" value="Api-Token ${env:DYNATRACE_API_TOKEN}"/>
+                    <Property name="Content-Type" value="application/jsonl"/>
+
+                    <JsonTemplateLayout eventTemplateUri="classpath:DynatraceLogMessageJsonLayout.json">
+                        <EventTemplateAdditionalField
+                                key="message"
+                                format="JSON"
+                                value='{"$resolver": "pattern", "pattern": "${pattern}"}'/>
+
+                        <EventTemplateAdditionalField key="application.name" value="JavaSnippets"/>
+                        <EventTemplateAdditionalField key="dt.os.type" value="${java:os}"/>
+                        <EventTemplateAdditionalField key="java.runtime" value="${java:runtime}"/>
+                        <EventTemplateAdditionalField key="os.name" value="${sys:os.name}"/>
+                        <EventTemplateAdditionalField key="os.arch" value="${sys:os.arch}"/>
+                        <EventTemplateAdditionalField key="os.version" value="${sys:os.version}"/>
+                        <EventTemplateAdditionalField key="log4j.configLocation" value="${log4j:configLocation}"/>
+                    </JsonTemplateLayout>
+                </AsyncHttp>
+            </EnvironmentArbiter>
+            <DefaultArbiter>
+                <Null name="Dynatrace"/>
+            </DefaultArbiter>
+        </Select>
     </Appenders>
     <Loggers>
         <Root level="info">

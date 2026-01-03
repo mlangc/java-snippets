@@ -9,6 +9,7 @@ version = '1.0-SNAPSHOT'
 
 repositories {
     mavenCentral()
+    mavenLocal()
 }
 
 dependencies {
@@ -28,9 +29,10 @@ dependencies {
     implementation 'org.apache.logging.log4j:log4j-api:_'
     implementation 'org.apache.logging.log4j:log4j-core:_'
     implementation 'org.apache.logging.log4j:log4j-slf4j2-impl:_'
-    implementation 'io.github.michaljonko:dynatrace-log4j2-appender:_'
+    implementation 'com.github.mlangc:more-log4j2:1.2.1-SNAPSHOT'
 
     implementation 'org.apache.commons:commons-numbers-core:_'
+    runtimeOnly 'org.apache.logging.log4j:log4j-layout-template-json:2.25.3'
 
     runtimeOnly 'com.lmax:disruptor:_'
 
