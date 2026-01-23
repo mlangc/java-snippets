@@ -37,12 +37,12 @@ dependencies {
     implementation 'org.apache.logging.log4j:log4j-core:_'
     implementation 'org.apache.logging.log4j:log4j-slf4j2-impl:_'
 
-    implementation platform('com.github.mlangc:more-log4j2-bom:2.1.0')
+    implementation platform('com.github.mlangc:more-log4j2-bom:_')
     implementation 'com.github.mlangc:more-log4j2'
     testRuntimeOnly 'com.github.mlangc:more-log4j2-junit'
 
     implementation 'org.apache.commons:commons-numbers-core:_'
-    runtimeOnly 'org.apache.logging.log4j:log4j-layout-template-json:2.25.3'
+    runtimeOnly 'org.apache.logging.log4j:log4j-layout-template-json:_'
 
     runtimeOnly 'com.lmax:disruptor:_'
 
