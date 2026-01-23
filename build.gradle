@@ -37,7 +37,7 @@ dependencies {
     implementation 'org.apache.logging.log4j:log4j-core:_'
     implementation 'org.apache.logging.log4j:log4j-slf4j2-impl:_'
 
-    implementation platform('com.github.mlangc:more-log4j2-bom:2.0.1-SNAPSHOT')
+    implementation platform('com.github.mlangc:more-log4j2-bom:2.1.0')
     implementation 'com.github.mlangc:more-log4j2'
     testRuntimeOnly 'com.github.mlangc:more-log4j2-junit'
 
