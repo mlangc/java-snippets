@@ -1,18 +1,16 @@
 package at.mlangc.concurrent.scheduled.executor.stress;
 
-import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import static at.mlangc.concurrent.scheduled.executor.stress.ExecutorStressHelpers.formatNanos;
+import static at.mlangc.concurrent.scheduled.executor.stress.ExecutorStressHelpers.milliSleep;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-
-import static at.mlangc.concurrent.scheduled.executor.stress.ExecutorStressHelpers.formatNanos;
-import static at.mlangc.concurrent.scheduled.executor.stress.ExecutorStressHelpers.milliSleep;
-import static java.lang.System.out;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class ScheduledExecutorServiceSubmitGettingInTheWay {
     private static final Logger LOG = LogManager.getLogger(ScheduledExecutorServiceSubmitGettingInTheWay.class);
