@@ -30,6 +30,8 @@ class MoreLog4j2Demo {
 			LOG.info(banner);
 		}
 
+		// Log Monitoring API v2:
+		// https://docs.dynatrace.com/docs/dynatrace-api/environment-api/log-monitoring-v2/post-ingest-logs
 		var rawJsonLogger = LoggerFactory.getLogger(MoreLog4j2Demo.class.getName() + ".rawJson");
 		rawJsonLogger.info("This is how the raw JSON that is sent to the Dynatrace API looks like");
 	}
