@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration status="WARN">
     <Properties>
-        <Property name="pattern" value="%d{HH:mm:ss.SSS} %-5level %logger{1} - %msg%n"/>
+        <Property name="pattern" value="%d{HH:mm:ss.SSS} %-5level %logger{2} - %msg%n"/>
     </Properties>
 
     <Appenders>
@@ -9,9 +9,46 @@
             <PatternLayout pattern="${pattern}"/>
         </Console>
 
+		<Console name="ConsoleJson" target="SYSTEM_OUT">
+			<JsonTemplateLayout eventTemplateUri="classpath:DynatraceLogMessageJsonLayout.json">
+				<EventTemplateAdditionalField
+						key="message"
+						format="JSON"
+						value='{"$resolver": "pattern", "pattern": "${pattern}"}'/>
+
+				<EventTemplateAdditionalField key="application.name" value="JavaSnippets"/>
+				<EventTemplateAdditionalField key="dt.os.type" value="${java:os}"/>
+				<EventTemplateAdditionalField key="java.runtime" value="${java:runtime}"/>
+				<EventTemplateAdditionalField key="os.name" value="${sys:os.name}"/>
+				<EventTemplateAdditionalField key="os.arch" value="${sys:os.arch}"/>
+				<EventTemplateAdditionalField key="os.version" value="${sys:os.version}"/>
+				<EventTemplateAdditionalField key="log4j.configLocation" value="${log4j:configLocation}"/>
+			</JsonTemplateLayout>
+		</Console>
+
         <Select>
             <EnvironmentArbiter propertyName="DYNATRACE_API_V2_LOGS_INGEST">
-                <AsyncHttp name="Dynatrace" url="${env:DYNATRACE_API_V2_LOGS_INGEST}"
+				<Http name="DynatraceHttp" url="${env:DYNATRACE_API_V2_LOGS_INGEST}">
+					<Property name="Authorization" value="Api-Token ${env:DYNATRACE_API_TOKEN}"/>
+					<Property name="Content-Type" value="application/jsonl"/>
+
+					<JsonTemplateLayout eventTemplateUri="classpath:DynatraceLogMessageJsonLayout.json">
+						<EventTemplateAdditionalField
+								key="message"
+								format="JSON"
+								value='{"$resolver": "pattern", "pattern": "${pattern}"}'/>
+
+						<EventTemplateAdditionalField key="application.name" value="JavaSnippets"/>
+						<EventTemplateAdditionalField key="dt.os.type" value="${java:os}"/>
+						<EventTemplateAdditionalField key="java.runtime" value="${java:runtime}"/>
+						<EventTemplateAdditionalField key="os.name" value="${sys:os.name}"/>
+						<EventTemplateAdditionalField key="os.arch" value="${sys:os.arch}"/>
+						<EventTemplateAdditionalField key="os.version" value="${sys:os.version}"/>
+						<EventTemplateAdditionalField key="log4j.configLocation" value="${log4j:configLocation}"/>
+					</JsonTemplateLayout>
+				</Http>
+
+                <AsyncHttp name="DynatraceAsyncHttp" url="${env:DYNATRACE_API_V2_LOGS_INGEST}"
                            maxBatchBytes="500000" maxBatchLogEvents="50000"
                            httpSuccessCodes="200,204" httpRetryCodes="429,503"
                            contentEncoding="gzip">
@@ -33,17 +70,33 @@
                         <EventTemplateAdditionalField key="log4j.configLocation" value="${log4j:configLocation}"/>
                     </JsonTemplateLayout>
                 </AsyncHttp>
+
             </EnvironmentArbiter>
             <DefaultArbiter>
-                <Null name="Dynatrace"/>
+                <Null name="DynatraceAsyncHttp"/>
+				<Null name="DynatraceHttp"/>
             </DefaultArbiter>
         </Select>
     </Appenders>
     <Loggers>
         <Root level="info">
             <AppenderRef ref="Console"/>
-            <AppenderRef ref="Dynatrace"/>
+            <AppenderRef ref="DynatraceAsyncHttp"/>
         </Root>
+
+		<Logger name="at.mlangc.more.log4j2.demo.MoreLog4j2Demo.consoleOnly" additivity="false">
+			<AppenderRef ref="Console"/>
+		</Logger>
+		g
+
+		<Logger name="at.mlangc.more.log4j2.demo.MoreLog4j2Demo.dynatraceHttp" additivity="false">
+			<AppenderRef ref="Console"/>
+			<AppenderRef ref="DynatraceHttp"/>
+		</Logger>
+
+		<Logger name="at.mlangc.more.log4j2.demo.MoreLog4j2Demo.rawJson" additivity="false">
+			<AppenderRef ref="ConsoleJson"/>
+		</Logger>
 
         <Logger name="org.apache.kafka" level="warn"/>
     </Loggers>
