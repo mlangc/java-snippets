@@ -16,7 +16,7 @@ class MoreLog4j2Demo {
 				.map(suffix -> LoggerFactory.getLogger(MoreLog4j2Demo.class.getName() + "." + suffix))
 				.toList();
 
-		for (Logger logger : loggers) {
+		for (var logger : loggers) {
 			var banner = "=".repeat(20 + logger.getName().length());
 			LOG.info(banner);
 			LOG.info("=========={}==========", logger.getName());
