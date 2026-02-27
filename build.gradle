@@ -2,6 +2,7 @@ plugins {
     id 'java'
     id "me.champeau.jmh"
     id "io.morethan.jmhreport"
+    id "io.github.reyerizo.gradle.jcstress"
 }
 
 group = 'org.example'
@@ -38,8 +39,8 @@ dependencies {
     implementation 'org.apache.logging.log4j:log4j-slf4j2-impl:_'
 
     implementation platform('com.github.mlangc:more-log4j2-bom:_')
-    implementation 'com.github.mlangc:more-log4j2'
-    testRuntimeOnly 'com.github.mlangc:more-log4j2-junit'
+    implementation 'com.github.mlangc:more-log4j2:_'
+    testRuntimeOnly 'com.github.mlangc:more-log4j2-junit:_'
 
     implementation 'org.apache.commons:commons-numbers-core:_'
     runtimeOnly 'org.apache.logging.log4j:log4j-layout-template-json:_'
@@ -91,6 +92,11 @@ jmh {
 jmhReport {
     jmhResultPath = project.file('build/results/jmh/results.json')
     jmhReportOutput = project.file('build/results/jmh/report')
+}
+
+jcstress {
+    jcstressDependency 'org.openjdk.jcstress:jcstress-core:_'
+    verbose = true
 }
 
 tasks.jmh.finalizedBy tasks.jmhReport
