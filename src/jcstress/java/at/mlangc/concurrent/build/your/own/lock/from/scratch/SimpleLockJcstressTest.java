@@ -8,7 +8,7 @@ import org.openjdk.jcstress.infra.results.I_Result;
 @Outcome(id = "4", expect = Expect.ACCEPTABLE)
 @Outcome(id = "", expect = Expect.FORBIDDEN)
 public class SimpleLockJcstressTest {
-    final SimpleLock lock = new CompareAndSetLock();
+    final SimpleLock lock = new ReentrantGetAndSetLock();
 
     int x;
 
@@ -19,17 +19,29 @@ public class SimpleLockJcstressTest {
 
     @Actor
     public void actor2() {
-        lock.runWithLock(() -> x++);
+        if (!lock.isReentrant()) {
+            lock.runWithLock(() -> x++);
+        } else {
+            lock.runWithLock(() -> lock.runWithLock(() -> x++));
+        }
     }
 
     @Actor
     public void actor3() {
-        lock.runWithLock(() -> x++);
+        if (!lock.isReentrant()) {
+            lock.runWithLock(() -> x++);
+        } else {
+            lock.runWithLock(() -> lock.runWithLock(() -> lock.runWithLock(() -> x++)));
+        }
     }
 
     @Actor
     public void actor4() {
-        lock.runWithLock(() -> x++);
+        if (!lock.isReentrant()) {
+            lock.runWithLock(() -> x++);
+        } else {
+            lock.runWithLock(() -> lock.runWithLock(() -> lock.runWithLock(() -> lock.runWithLock(() -> x++))));
+        }
     }
 
     @Arbiter

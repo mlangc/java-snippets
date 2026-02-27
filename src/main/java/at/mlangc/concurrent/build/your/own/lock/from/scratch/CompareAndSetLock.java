@@ -7,13 +7,13 @@ public class CompareAndSetLock implements SimpleLock {
 
     @Override
     public void lock() {
-        while (!owner.compareAndSet(-1, Thread.currentThread().threadId())) {
+        while (!owner.weakCompareAndSetAcquire(-1, Thread.currentThread().threadId())) {
             Thread.onSpinWait();
         }
     }
 
     @Override
     public void unlock() {
-        owner.set(-1);
+        owner.setRelease(-1);
     }
 }

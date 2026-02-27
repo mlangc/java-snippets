@@ -83,8 +83,8 @@ tasks.withType(JavaExec).configureEach {
 }
 
 jmh {
-    includes = ["ExtendedRecordHashCodeBenchmark"]
-    threads = Integer.getInteger("jmhThreads", 1)
+    includes = ["AtomicSequenceBenchmark"]
+    threads = 4
     resultFormat = "JSON"
     //profilers = ["org.openjdk.jmh.profile.XCTraceAsmProfiler"]
 }
