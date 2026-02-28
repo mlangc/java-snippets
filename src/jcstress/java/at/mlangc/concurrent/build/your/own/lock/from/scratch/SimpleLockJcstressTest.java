@@ -8,7 +8,7 @@ import org.openjdk.jcstress.infra.results.I_Result;
 @Outcome(id = "4", expect = Expect.ACCEPTABLE)
 @Outcome(id = "", expect = Expect.FORBIDDEN)
 public class SimpleLockJcstressTest {
-    final SimpleLock lock = new ReentrantGetAndSetLock();
+    final SimpleLock lock = new ReentrantGetAndSetLockWithBackoff();
 
     int x;
 

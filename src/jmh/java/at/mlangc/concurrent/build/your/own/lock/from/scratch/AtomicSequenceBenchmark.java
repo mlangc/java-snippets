@@ -35,10 +35,11 @@ public class AtomicSequenceBenchmark {
     }
 
     public enum SeqImplType {
-        COMPARE_AND_SET_LOCK, JAVA_REENTRANT_LOCK, SYNCHRONIZED, ATOMIC_GET_AND_INCREMENT, GET_AND_SET_LOCK, REENTRANT_GET_AND_SET_LOCK
+        COMPARE_AND_SET_LOCK, JAVA_REENTRANT_LOCK, SYNCHRONIZED, ATOMIC_GET_AND_INCREMENT, GET_AND_SET_LOCK, REENTRANT_GET_AND_SET_LOCK,
+        REENTRANT_GET_AND_SET_LOCK_WITH_BACKOFF
     }
 
-    @Param
+    @Param({"REENTRANT_GET_AND_SET_LOCK", "REENTRANT_GET_AND_SET_LOCK_WITH_BACKOFF", "JAVA_REENTRANT_LOCK"})
     SeqImplType implType;
 
     AtomicSequence sequence;
@@ -68,6 +69,7 @@ public class AtomicSequenceBenchmark {
             case COMPARE_AND_SET_LOCK -> new SimpleLockBasedSequence(new CompareAndSetLock());
             case GET_AND_SET_LOCK -> new SimpleLockBasedSequence(new GetAndSetLock());
             case REENTRANT_GET_AND_SET_LOCK -> new SimpleLockBasedSequence(new ReentrantGetAndSetLock());
+            case REENTRANT_GET_AND_SET_LOCK_WITH_BACKOFF -> new SimpleLockBasedSequence(new ReentrantGetAndSetLockWithBackoff(500, 10_000, TimeUnit.MICROSECONDS));
         };
     }
 

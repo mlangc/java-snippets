@@ -31,7 +31,12 @@ class SimpleLockTest {
     }
 
     static List<Class<? extends SimpleLock>> locks() {
-        return List.of(JavaUtilConcurrentReentrantLock.class, CompareAndSetLock.class, GetAndSetLock.class, ReentrantGetAndSetLock.class);
+        return List.of(
+                JavaUtilConcurrentReentrantLock.class,
+                CompareAndSetLock.class,
+                GetAndSetLock.class,
+                ReentrantGetAndSetLock.class,
+                ReentrantGetAndSetLockWithBackoff.class);
     }
 
     @ParameterizedTest
