@@ -36,7 +36,10 @@ class SimpleLockTest {
                 CompareAndSetLock.class,
                 GetAndSetLock.class,
                 ReentrantGetAndSetLock.class,
-                ReentrantGetAndSetLockWithBackoff.class);
+                ReentrantGetAndSetLockWithBackoff.class,
+                ClhQueueLock.class,
+                ClhQueueWithHashMapLock.class,
+                FancyClhQueueLock.class);
     }
 
     @ParameterizedTest

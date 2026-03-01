@@ -86,6 +86,7 @@ jmh {
     includes = ["AtomicSequenceBenchmark"]
     threads = 8
     resultFormat = "JSON"
+    //profilers = ["jfr"]
     //profilers = ["org.openjdk.jmh.profile.XCTraceAsmProfiler"]
 }
 
