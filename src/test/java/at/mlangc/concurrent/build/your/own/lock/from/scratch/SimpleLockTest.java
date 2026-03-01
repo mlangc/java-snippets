@@ -3,17 +3,17 @@ package at.mlangc.concurrent.build.your.own.lock.from.scratch;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatNoException;
+import static org.assertj.core.api.Assertions.*;
 import static org.assertj.core.api.Assumptions.assumeThat;
 
 class SimpleLockTest {
@@ -30,6 +30,23 @@ class SimpleLockTest {
         assertThat(executor.awaitTermination(1, TimeUnit.SECONDS)).isTrue();
     }
 
+    enum LockImpl {
+        JAVA_UTIL_REENTRANT_LOCK(JavaUtilConcurrentReentrantLock::new),
+        COMPARE_AND_SET_LOCK(CompareAndSetLock::new),
+        GET_AND_SET_LOCK(GetAndSetLock::new),
+        REENTRANT_GET_AND_SET_LOCK_WITH_BACKOFF(ReentrantGetAndSetLockWithBackoff::new),
+        CLH_QUEUE_LOCK(ClhQueueLock::new),
+        CLH_QUEUE_LOCK_WITH_HASHMAP(ClhQueueWithHashMapLock::new),
+        FANCY_CLH_QUEUE_LOCK(FancyClhQueueLock::new),
+        MCS_LOCK(McsLock::new);
+
+        final Supplier<SimpleLock> factory;
+
+        LockImpl(Supplier<SimpleLock> factory) {
+            this.factory = factory;
+        }
+    }
+
     static List<Class<? extends SimpleLock>> locks() {
         return List.of(
                 JavaUtilConcurrentReentrantLock.class,
@@ -39,14 +56,23 @@ class SimpleLockTest {
                 ReentrantGetAndSetLockWithBackoff.class,
                 ClhQueueLock.class,
                 ClhQueueWithHashMapLock.class,
-                FancyClhQueueLock.class);
+                FancyClhQueueLock.class,
+                McsLock.class);
     }
 
     @ParameterizedTest
-    @MethodSource("locks")
-    void shouldProperlyProtectSharedCounter(Class<? extends SimpleLock> clazz) {
-        var lock = newLock(clazz);
+    @EnumSource
+    void shouldProperlyProtectSharedCounter(LockImpl impl) {
+        var lock = impl.factory.get();
+        shouldProperlyProtectSharedCounter(lock);
 
+        var reentrantLock = SimpleLocks.makeReentrantAndChecked(lock);
+        if (reentrantLock != lock) {
+            shouldProperlyProtectSharedCounter(lock);
+        }
+    }
+
+    private void shouldProperlyProtectSharedCounter(SimpleLock lock) {
         var counter = new Object() {
             long value;
         };
@@ -62,6 +88,10 @@ class SimpleLockTest {
                                 } else {
                                     lock.runWithLock(() -> counter.value++);
                                 }
+
+                                if (lock.hasCheckedUnlock() & (i & 0xFF) == 0xFF) {
+                                    assertThatExceptionOfType(IllegalMonitorStateException.class).isThrownBy(lock::unlock);
+                                }
                             }
                         }, executor)
                 ).toList();
@@ -71,18 +101,28 @@ class SimpleLockTest {
     }
 
     @ParameterizedTest
-    @MethodSource("locks")
-    void shouldBeReentrant(Class<? extends SimpleLock> clazz) {
-        var lock = newLock(clazz);
+    @EnumSource
+    void makeReentrantAndCheckedShouldWork(LockImpl impl) {
+        var lock = SimpleLocks.makeReentrantAndChecked(impl.factory.get());
+        assumeThat(lock.isReentrant()).isTrue();
+        assertThat(lock.hasCheckedUnlock()).isTrue();
+        assertThatNoException().isThrownBy(() -> lock.runWithLock(() -> lock.runWithLock(() -> { })));
+        assertThatExceptionOfType(IllegalMonitorStateException.class).isThrownBy(lock::unlock);
+    }
+
+    @ParameterizedTest
+    @EnumSource
+    void reentrantLocksShouldBeReentrant(LockImpl impl) {
+        var lock = impl.factory.get();
         assumeThat(lock.isReentrant()).isTrue();
         assertThatNoException().isThrownBy(() -> lock.runWithLock(() -> lock.runWithLock(() -> { })));
     }
 
-    private static SimpleLock newLock(Class<? extends SimpleLock> clazz) {
-        try {
-            return clazz.getDeclaredConstructor().newInstance();
-        } catch (Exception e) {
-            throw new AssertionError("Unexpected exception", e);
-        }
+    @ParameterizedTest
+    @EnumSource
+    void checkedLocksShouldBeChecked(LockImpl impl) {
+        var lock = impl.factory.get();
+        assumeThat(lock.hasCheckedUnlock()).isTrue();
+        assertThatExceptionOfType(IllegalMonitorStateException.class).isThrownBy(lock::unlock);
     }
 }

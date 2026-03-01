@@ -1,19 +1,40 @@
 package at.mlangc.concurrent.build.your.own.lock.from.scratch;
 
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class CompareAndSetLock implements SimpleLock {
-    private final AtomicLong owner = new AtomicLong(-1);
+    private final AtomicReference<Thread> owner = new AtomicReference<>();
+    private long entries;
 
     @Override
     public void lock() {
-        while (!owner.weakCompareAndSetAcquire(-1, Thread.currentThread().threadId())) {
-            Thread.onSpinWait();
+        if (owner.getPlain() != Thread.currentThread()) {
+            while (!owner.weakCompareAndSetAcquire(null, Thread.currentThread())) {
+                Thread.onSpinWait();
+            }
         }
+
+        entries++;
     }
 
     @Override
     public void unlock() {
-        owner.setRelease(-1);
+        if (owner.get() != Thread.currentThread()) {
+            throw new IllegalMonitorStateException("Not locked");
+        }
+
+        if (--entries == 0) {
+            owner.setRelease(null);
+        }
+    }
+
+    @Override
+    public boolean hasCheckedUnlock() {
+        return true;
+    }
+
+    @Override
+    public boolean isReentrant() {
+        return true;
     }
 }

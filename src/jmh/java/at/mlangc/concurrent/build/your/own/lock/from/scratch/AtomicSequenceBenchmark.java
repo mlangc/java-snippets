@@ -36,10 +36,11 @@ public class AtomicSequenceBenchmark {
 
     public enum SeqImplType {
         COMPARE_AND_SET_LOCK, JAVA_REENTRANT_LOCK, SYNCHRONIZED, ATOMIC_GET_AND_INCREMENT, GET_AND_SET_LOCK, REENTRANT_GET_AND_SET_LOCK,
-        REENTRANT_GET_AND_SET_LOCK_WITH_BACKOFF, CLH_QUEUE_LOCK, CLH_QUEUE_WITH_HASH_MAP_LOCK, CLH_QUEUE_LOCK_FANCY;
+        REENTRANT_GET_AND_SET_LOCK_WITH_BACKOFF, CLH_QUEUE_LOCK, CLH_QUEUE_WITH_HASH_MAP_LOCK, CLH_QUEUE_LOCK_FANCY,
+        MCS_LOCK;
     }
 
-    @Param({"JAVA_REENTRANT_LOCK", "CLH_QUEUE_LOCK", "COMPARE_AND_SET_LOCK"})
+    @Param({"JAVA_REENTRANT_LOCK", "CLH_QUEUE_LOCK", "COMPARE_AND_SET_LOCK", "MCS_LOCK"})
     SeqImplType implType;
 
     AtomicSequence sequence;
@@ -73,6 +74,7 @@ public class AtomicSequenceBenchmark {
             case CLH_QUEUE_LOCK -> new SimpleLockBasedSequence(new ClhQueueLock());
             case CLH_QUEUE_WITH_HASH_MAP_LOCK -> new SimpleLockBasedSequence(new ClhQueueWithHashMapLock());
             case CLH_QUEUE_LOCK_FANCY -> new SimpleLockBasedSequence(new FancyClhQueueLock());
+            case MCS_LOCK -> new SimpleLockBasedSequence(new McsLock());
         };
     }
 

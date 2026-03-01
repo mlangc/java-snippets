@@ -5,10 +5,10 @@ import org.openjdk.jcstress.infra.results.I_Result;
 
 @JCStressTest
 @State
-@Outcome(id = "4", expect = Expect.ACCEPTABLE)
+@Outcome(id = "5", expect = Expect.ACCEPTABLE)
 @Outcome(id = "", expect = Expect.FORBIDDEN)
 public class SimpleLockJcstressTest {
-    final SimpleLock lock = new FancyClhQueueLock();
+    final SimpleLock lock = new CompareAndSetLock();
 
     int x;
 
@@ -41,6 +41,23 @@ public class SimpleLockJcstressTest {
             lock.runWithLock(() -> x++);
         } else {
             lock.runWithLock(() -> lock.runWithLock(() -> lock.runWithLock(() -> lock.runWithLock(() -> x++))));
+        }
+    }
+
+    @Actor
+    public void actor5() {
+        try {
+            lock.lock();
+            x++;
+            lock.unlock();
+            if (lock.hasCheckedUnlock()) {
+                lock.unlock();
+                throw new AssertionError("Should never reach this line");
+            }
+        } catch (IllegalMonitorStateException e) {
+            if (!lock.hasCheckedUnlock()) {
+                throw e;
+            }
         }
     }
 

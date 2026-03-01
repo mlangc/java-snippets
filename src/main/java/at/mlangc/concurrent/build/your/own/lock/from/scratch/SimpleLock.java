@@ -6,7 +6,11 @@ interface SimpleLock {
 
     default boolean isReentrant() {
         return false;
-    };
+    }
+
+    default boolean hasCheckedUnlock() {
+        return false;
+    }
 
     default void runWithLock(Runnable op) {
         lock();
