@@ -2,9 +2,11 @@ package at.mlangc.concurrent.build.your.own.lock.from.scratch;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -68,25 +70,31 @@ class SimpleLockTest {
 
         var reentrantLock = SimpleLocks.makeReentrantAndChecked(lock);
         if (reentrantLock != lock) {
-            shouldProperlyProtectSharedCounter(lock);
+            shouldProperlyProtectSharedCounter(reentrantLock);
         }
     }
 
     private void shouldProperlyProtectSharedCounter(SimpleLock lock) {
-        var counter = new Object() {
-            long value;
+        var sharedLongs = new Object() {
+            final long[] values = new long[32];
+
+            void incrementAll() {
+                for (int i = 0; i < values.length; i++) {
+                    values[i]++;
+                }
+            }
         };
 
-        var incrementsPerThread = 1_000_000L;
-        var numThreads = 4;
+        final var incrementsPerThread = 100_000L;
+        final var numThreads = 4;
 
-        var jobs = IntStream.range(0, numThreads)
+        CompletableFuture<?>[] jobs = IntStream.range(0, numThreads)
                 .mapToObj(_ -> CompletableFuture.runAsync(() -> {
                             for (int i = 0; i < incrementsPerThread; i++) {
                                 if (lock.isReentrant() && (i & 1) != 0) {
-                                    lock.runWithLock(() -> lock.runWithLock(() -> counter.value++));
+                                    lock.runWithLock(() -> lock.runWithLock(sharedLongs::incrementAll));
                                 } else {
-                                    lock.runWithLock(() -> counter.value++);
+                                    lock.runWithLock(sharedLongs::incrementAll);
                                 }
 
                                 if (lock.hasCheckedUnlock() & (i & 0xFF) == 0xFF) {
@@ -94,15 +102,17 @@ class SimpleLockTest {
                                 }
                             }
                         }, executor)
-                ).toList();
+                ).toArray(CompletableFuture[]::new);
+        assertThat(CompletableFuture.allOf(jobs)).succeedsWithin(5, TimeUnit.SECONDS);
 
-        jobs.forEach(job -> assertThat(job).succeedsWithin(5, TimeUnit.SECONDS));
-        assertThat(counter.value).isEqualTo(numThreads * incrementsPerThread);
+        var expectedValues = new long[sharedLongs.values.length];
+        Arrays.fill(expectedValues, incrementsPerThread * numThreads);
+        assertThat(sharedLongs.values).isEqualTo(expectedValues);
     }
 
     @ParameterizedTest
     @EnumSource
-    void makeReentrantAndCheckedShouldWork(LockImpl impl) {
+    void makeReentrantAndCheckedShouldWorkInBasicScenario(LockImpl impl) {
         var lock = SimpleLocks.makeReentrantAndChecked(impl.factory.get());
         assumeThat(lock.isReentrant()).isTrue();
         assertThat(lock.hasCheckedUnlock()).isTrue();
@@ -112,7 +122,7 @@ class SimpleLockTest {
 
     @ParameterizedTest
     @EnumSource
-    void reentrantLocksShouldBeReentrant(LockImpl impl) {
+    void reentrantLocksShouldBeReentrantInBasicScenario(LockImpl impl) {
         var lock = impl.factory.get();
         assumeThat(lock.isReentrant()).isTrue();
         assertThatNoException().isThrownBy(() -> lock.runWithLock(() -> lock.runWithLock(() -> { })));
@@ -120,7 +130,7 @@ class SimpleLockTest {
 
     @ParameterizedTest
     @EnumSource
-    void checkedLocksShouldBeChecked(LockImpl impl) {
+    void checkedLocksShouldBeCheckedInBasicScenario(LockImpl impl) {
         var lock = impl.factory.get();
         assumeThat(lock.hasCheckedUnlock()).isTrue();
         assertThatExceptionOfType(IllegalMonitorStateException.class).isThrownBy(lock::unlock);
