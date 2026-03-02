@@ -2,12 +2,10 @@ package at.mlangc.concurrent.build.your.own.lock.from.scratch;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -40,7 +38,8 @@ class SimpleLockTest {
         CLH_QUEUE_LOCK(ClhQueueLock::new),
         CLH_QUEUE_LOCK_WITH_HASHMAP(ClhQueueWithHashMapLock::new),
         FANCY_CLH_QUEUE_LOCK(FancyClhQueueLock::new),
-        MCS_LOCK(McsLock::new);
+        MCS_LOCK(McsLock::new),
+        REENTRANT_LIKE_QUEUE_LOCK(ReentrantLikeQueueLock::new);
 
         final Supplier<SimpleLock> factory;
 
@@ -49,21 +48,8 @@ class SimpleLockTest {
         }
     }
 
-    static List<Class<? extends SimpleLock>> locks() {
-        return List.of(
-                JavaUtilConcurrentReentrantLock.class,
-                CompareAndSetLock.class,
-                GetAndSetLock.class,
-                ReentrantGetAndSetLock.class,
-                ReentrantGetAndSetLockWithBackoff.class,
-                ClhQueueLock.class,
-                ClhQueueWithHashMapLock.class,
-                FancyClhQueueLock.class,
-                McsLock.class);
-    }
-
     @ParameterizedTest
-    @EnumSource(names = "MCS_LOCK", mode = EnumSource.Mode.INCLUDE)
+    @EnumSource
     void shouldProperlyProtectSharedCounter(LockImpl impl) {
         var lock = impl.factory.get();
         shouldProperlyProtectSharedCounter(lock);
