@@ -3,8 +3,16 @@ package at.mlangc.concurrent.build.your.own.lock.from.scratch;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class JavaUtilConcurrentReentrantLock implements SimpleLock {
-    private static final Lock lock = new ReentrantLock();
+class JavaUtilConcurrentReentrantLock implements SimpleLock {
+    private final Lock lock;
+
+    JavaUtilConcurrentReentrantLock() {
+        this(false);
+    }
+
+    JavaUtilConcurrentReentrantLock(boolean fair) {
+        this.lock = new ReentrantLock(fair);
+    }
 
     @Override
     public void lock() {

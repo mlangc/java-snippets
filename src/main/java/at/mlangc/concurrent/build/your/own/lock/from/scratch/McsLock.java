@@ -2,11 +2,15 @@ package at.mlangc.concurrent.build.your.own.lock.from.scratch;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.LockSupport;
 
 public class McsLock implements SimpleLock {
+    private static final int SPINS_BEFORE_PARK = 25_000;
+
     private static class Node {
         final AtomicBoolean locked = new AtomicBoolean();
         final AtomicReference<Node> behind = new AtomicReference<>();
+        final Thread owner = Thread.currentThread();
         long entries;
     }
 
@@ -22,8 +26,14 @@ public class McsLock implements SimpleLock {
             if (waitingBeforeMe != null) {
                 waitingBeforeMe.behind.setRelease(myNode);
 
+                var spins = 0;
                 while (!myNode.locked.getAcquire()) {
-                    Thread.onSpinWait();
+                    if (++spins < SPINS_BEFORE_PARK) {
+                        Thread.onSpinWait();
+                    } else {
+                        spins = 0;
+                        LockSupport.park(this);
+                    }
                 }
             }
         }
@@ -51,14 +61,15 @@ public class McsLock implements SimpleLock {
         }
 
         while (true) {
-            var waitingAfterMe = myNode.behind.getAcquire();
+            var waitingForMe = myNode.behind.getAcquire();
 
-            if (waitingAfterMe == null) {
+            if (waitingForMe == null) {
                 Thread.onSpinWait();
             } else {
                 myNode.behind.setPlain(null);
                 myNode.locked.setPlain(false);
-                waitingAfterMe.locked.setRelease(true);
+                waitingForMe.locked.setRelease(true);
+                LockSupport.unpark(waitingForMe.owner);
                 break;
             }
         }

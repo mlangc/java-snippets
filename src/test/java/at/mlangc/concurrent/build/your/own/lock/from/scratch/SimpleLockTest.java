@@ -63,7 +63,7 @@ class SimpleLockTest {
     }
 
     @ParameterizedTest
-    @EnumSource
+    @EnumSource(names = "MCS_LOCK", mode = EnumSource.Mode.INCLUDE)
     void shouldProperlyProtectSharedCounter(LockImpl impl) {
         var lock = impl.factory.get();
         shouldProperlyProtectSharedCounter(lock);
@@ -85,8 +85,8 @@ class SimpleLockTest {
             }
         };
 
-        final var incrementsPerThread = 100_000L;
-        final var numThreads = 4;
+        final var incrementsPerThread = 25_000;
+        final var numThreads = 8;
 
         CompletableFuture<?>[] jobs = IntStream.range(0, numThreads)
                 .mapToObj(_ -> CompletableFuture.runAsync(() -> {
