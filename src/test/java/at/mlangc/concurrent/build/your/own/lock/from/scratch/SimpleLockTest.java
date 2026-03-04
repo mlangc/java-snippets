@@ -44,46 +44,43 @@ class SimpleLockTest {
     @EnumSource
     void shouldProtectSharedCounter(LockImpl impl) {
         var lock = impl.factory.get();
-        shouldProtectSharedCounter(lock);
-    }
 
-    private void shouldProtectSharedCounter(SimpleLock lock) {
-        var sharedLongs = new Object() {
-            final long[] values = new long[32];
+		var sharedLongs = new Object() {
+			final long[] values = new long[32];
 
-            void incrementAll() {
-                for (int i = 0; i < values.length; i++) {
-                    values[i]++;
-                }
-            }
-        };
+			void incrementAll() {
+				for (int i = 0; i < values.length; i++) {
+					values[i]++;
+				}
+			}
+		};
 
-        final var incrementsPerThread = 25_000;
-        final var numThreads = 8;
+		final var incrementsPerThread = 25_000;
+		final var numThreads = 8;
 
-        CompletableFuture<?>[] jobs = IntStream.range(0, numThreads)
-                .mapToObj(_ -> CompletableFuture.runAsync(() -> {
-                            for (int i = 0; i < incrementsPerThread; i++) {
-                                if (lock.isReentrant() && (i & 1) != 0) {
-                                    lock.runWithLock(() -> lock.runWithLock(sharedLongs::incrementAll));
-                                } else {
-                                    lock.runWithLock(sharedLongs::incrementAll);
-                                }
+		CompletableFuture<?>[] jobs = IntStream.range(0, numThreads)
+				.mapToObj(_ -> CompletableFuture.runAsync(() -> {
+							for (int i = 0; i < incrementsPerThread; i++) {
+								if (lock.isReentrant() && (i & 1) != 0) {
+									lock.runWithLock(() -> lock.runWithLock(sharedLongs::incrementAll));
+								} else {
+									lock.runWithLock(sharedLongs::incrementAll);
+								}
 
-                                if (lock.hasCheckedUnlock() & (i & 0xFF) == 0xFF) {
-                                    assertThatExceptionOfType(IllegalMonitorStateException.class).isThrownBy(lock::unlock);
-                                }
-                            }
-                        }, executor)
-                ).toArray(CompletableFuture[]::new);
-        assertThat(CompletableFuture.allOf(jobs)).succeedsWithin(5, TimeUnit.SECONDS);
+								if (lock.hasCheckedUnlock() & (i & 0xFF) == 0xFF) {
+									assertThatExceptionOfType(IllegalMonitorStateException.class).isThrownBy(lock::unlock);
+								}
+							}
+						}, executor)
+				).toArray(CompletableFuture[]::new);
+		assertThat(CompletableFuture.allOf(jobs)).succeedsWithin(5, TimeUnit.SECONDS);
 
-        var expectedValues = new long[sharedLongs.values.length];
-        Arrays.fill(expectedValues, incrementsPerThread * numThreads);
-        assertThat(sharedLongs.values).isEqualTo(expectedValues);
-    }
+		var expectedValues = new long[sharedLongs.values.length];
+		Arrays.fill(expectedValues, incrementsPerThread * numThreads);
+		assertThat(sharedLongs.values).isEqualTo(expectedValues);
+	}
 
-    @ParameterizedTest
+	@ParameterizedTest
     @EnumSource
     void reentrantLocksShouldBeReentrantInBasicScenario(LockImpl impl) {
         var lock = impl.factory.get();
