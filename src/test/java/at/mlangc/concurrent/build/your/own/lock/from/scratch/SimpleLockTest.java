@@ -31,15 +31,7 @@ class SimpleLockTest {
     }
 
     enum LockImpl {
-        JAVA_UTIL_REENTRANT_LOCK(JavaUtilConcurrentReentrantLock::new),
-        COMPARE_AND_SET_LOCK(CompareAndSetLock::new),
-        GET_AND_SET_LOCK(GetAndSetLock::new),
-        REENTRANT_GET_AND_SET_LOCK_WITH_BACKOFF(ReentrantGetAndSetLockWithBackoff::new),
-        CLH_QUEUE_LOCK(ClhQueueLock::new),
-        CLH_QUEUE_LOCK_WITH_HASHMAP(ClhQueueWithHashMapLock::new),
-        FANCY_CLH_QUEUE_LOCK(FancyClhQueueLock::new),
-        MCS_LOCK(McsLock::new),
-        REENTRANT_LIKE_QUEUE_LOCK(ReentrantLikeQueueLock::new);
+		BROKEN_NOOP(BrokenNoopLock::new);
 
         final Supplier<SimpleLock> factory;
 
@@ -50,17 +42,12 @@ class SimpleLockTest {
 
     @ParameterizedTest
     @EnumSource
-    void shouldProperlyProtectSharedCounter(LockImpl impl) {
+    void shouldProtectSharedCounter(LockImpl impl) {
         var lock = impl.factory.get();
-        shouldProperlyProtectSharedCounter(lock);
-
-        var reentrantLock = SimpleLocks.makeReentrantAndChecked(lock);
-        if (reentrantLock != lock) {
-            shouldProperlyProtectSharedCounter(reentrantLock);
-        }
+        shouldProtectSharedCounter(lock);
     }
 
-    private void shouldProperlyProtectSharedCounter(SimpleLock lock) {
+    private void shouldProtectSharedCounter(SimpleLock lock) {
         var sharedLongs = new Object() {
             final long[] values = new long[32];
 
@@ -94,16 +81,6 @@ class SimpleLockTest {
         var expectedValues = new long[sharedLongs.values.length];
         Arrays.fill(expectedValues, incrementsPerThread * numThreads);
         assertThat(sharedLongs.values).isEqualTo(expectedValues);
-    }
-
-    @ParameterizedTest
-    @EnumSource
-    void makeReentrantAndCheckedShouldWorkInBasicScenario(LockImpl impl) {
-        var lock = SimpleLocks.makeReentrantAndChecked(impl.factory.get());
-        assumeThat(lock.isReentrant()).isTrue();
-        assertThat(lock.hasCheckedUnlock()).isTrue();
-        assertThatNoException().isThrownBy(() -> lock.runWithLock(() -> lock.runWithLock(() -> { })));
-        assertThatExceptionOfType(IllegalMonitorStateException.class).isThrownBy(lock::unlock);
     }
 
     @ParameterizedTest

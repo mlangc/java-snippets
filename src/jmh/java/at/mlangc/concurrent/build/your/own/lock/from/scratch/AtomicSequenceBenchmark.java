@@ -1,9 +1,17 @@
 package at.mlangc.concurrent.build.your.own.lock.from.scratch;
 
-import org.openjdk.jmh.annotations.*;
-
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
+
+import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Fork;
+import org.openjdk.jmh.annotations.Measurement;
+import org.openjdk.jmh.annotations.Mode;
+import org.openjdk.jmh.annotations.Param;
+import org.openjdk.jmh.annotations.Scope;
+import org.openjdk.jmh.annotations.Setup;
+import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.Warmup;
 
 @Fork(value = 1)
 @Warmup(iterations = 5, time = 100, timeUnit = TimeUnit.MILLISECONDS)
@@ -35,12 +43,10 @@ public class AtomicSequenceBenchmark {
     }
 
     public enum SeqImplType {
-        COMPARE_AND_SET_LOCK, JAVA_REENTRANT_LOCK, JAVA_REENTRANT_LOCK_FAIR, SYNCHRONIZED, ATOMIC_GET_AND_INCREMENT, GET_AND_SET_LOCK, REENTRANT_GET_AND_SET_LOCK,
-        REENTRANT_GET_AND_SET_LOCK_WITH_BACKOFF, CLH_QUEUE_LOCK, CLH_QUEUE_WITH_HASH_MAP_LOCK, CLH_QUEUE_LOCK_FANCY,
-        MCS_LOCK, REENTRANT_LIKE_QUEUE_LOCK;
+		USING_BROKEN_LOCK
     }
 
-    @Param({"JAVA_REENTRANT_LOCK", "UNFAIR_QUEUE_LOCK", "COMPARE_AND_SET_LOCK"})
+    @Param({"USING_BROKEN_LOCK"})
     SeqImplType implType;
 
     AtomicSequence sequence;
@@ -48,35 +54,7 @@ public class AtomicSequenceBenchmark {
     @Setup
     public void setup() {
         sequence = switch (implType) {
-            case SYNCHRONIZED -> new AtomicSequence() {
-                long value;
-
-                @Override
-                public synchronized long next() {
-                    return value++;
-                }
-            };
-
-            case ATOMIC_GET_AND_INCREMENT -> new AtomicSequence() {
-                final AtomicLong value = new AtomicLong();
-
-                @Override
-                public long next() {
-                    return value.getAndIncrement();
-                }
-            };
-
-            case JAVA_REENTRANT_LOCK -> new SimpleLockBasedSequence(new JavaUtilConcurrentReentrantLock());
-            case JAVA_REENTRANT_LOCK_FAIR -> new SimpleLockBasedSequence(new JavaUtilConcurrentReentrantLock(true));
-            case COMPARE_AND_SET_LOCK -> new SimpleLockBasedSequence(new CompareAndSetLock());
-            case GET_AND_SET_LOCK -> new SimpleLockBasedSequence(new GetAndSetLock());
-            case REENTRANT_GET_AND_SET_LOCK -> new SimpleLockBasedSequence(new ReentrantGetAndSetLock());
-            case REENTRANT_GET_AND_SET_LOCK_WITH_BACKOFF -> new SimpleLockBasedSequence(new ReentrantGetAndSetLockWithBackoff(500, 10_000, TimeUnit.MICROSECONDS));
-            case CLH_QUEUE_LOCK -> new SimpleLockBasedSequence(new ClhQueueLock());
-            case CLH_QUEUE_WITH_HASH_MAP_LOCK -> new SimpleLockBasedSequence(new ClhQueueWithHashMapLock());
-            case CLH_QUEUE_LOCK_FANCY -> new SimpleLockBasedSequence(new FancyClhQueueLock());
-            case MCS_LOCK -> new SimpleLockBasedSequence(new McsLock());
-            case REENTRANT_LIKE_QUEUE_LOCK -> new SimpleLockBasedSequence(new ReentrantLikeQueueLock());
+			case USING_BROKEN_LOCK -> new SimpleLockBasedSequence(new BrokenNoopLock());
         };
     }
 
