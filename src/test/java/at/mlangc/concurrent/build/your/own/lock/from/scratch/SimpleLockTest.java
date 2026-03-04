@@ -1,9 +1,9 @@
 package at.mlangc.concurrent.build.your.own.lock.from.scratch;
 
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatNoException;
+import static org.assertj.core.api.Assumptions.assumeThat;
 
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
@@ -13,8 +13,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.assertj.core.api.Assumptions.assumeThat;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 class SimpleLockTest {
     static ExecutorService executor;
@@ -31,7 +33,10 @@ class SimpleLockTest {
     }
 
     enum LockImpl {
-		BROKEN_NOOP(BrokenNoopLock::new);
+		JAVA_REENTRANT_LOCK(JavaUtilReentrantLock::new),
+		COMPARE_AND_SET_LOCK(CompareAndSetLock::new),
+		COMPARE_AND_SET_UNFAIR_QUEUE_LOCK(() -> new CompareAndSetLockQueueLock(false)),
+		COMPARE_AND_SET_FAIR_QUEUE_LOCK(() -> new CompareAndSetLockQueueLock(true));
 
         final Supplier<SimpleLock> factory;
 
