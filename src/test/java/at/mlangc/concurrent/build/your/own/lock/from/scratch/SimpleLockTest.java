@@ -31,7 +31,7 @@ class SimpleLockTest {
     }
 
     enum LockImpl {
-		BROKEN_NOOP(BrokenNoopLock::new);
+		JAVA_MEETUP(JavaMeetupLock::new);
 
         final Supplier<SimpleLock> factory;
 

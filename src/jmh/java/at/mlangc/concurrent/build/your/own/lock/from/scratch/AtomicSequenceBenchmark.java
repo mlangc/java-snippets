@@ -54,7 +54,7 @@ public class AtomicSequenceBenchmark {
     @Setup
     public void setup() {
         sequence = switch (implType) {
-			case USING_BROKEN_LOCK -> new SimpleLockBasedSequence(new BrokenNoopLock());
+			case USING_BROKEN_LOCK -> new SimpleLockBasedSequence(new JavaMeetupLock());
         };
     }
 
