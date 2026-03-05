@@ -4,6 +4,14 @@ interface SimpleLock {
     void lock();
     void unlock();
 
+    default boolean isReentrant() {
+        return false;
+    }
+
+    default boolean hasCheckedUnlock() {
+        return false;
+    }
+
 	default void runWithLock(Runnable op) {
 		lock();
 
@@ -13,12 +21,4 @@ interface SimpleLock {
 			unlock();
 		}
 	}
-
-    default boolean isReentrant() {
-        return false;
-    }
-
-    default boolean hasCheckedUnlock() {
-        return false;
-    }
 }
