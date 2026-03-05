@@ -8,7 +8,7 @@ import org.openjdk.jcstress.infra.results.I_Result;
 @Outcome(id = "5", expect = Expect.ACCEPTABLE)
 @Outcome(id = "", expect = Expect.FORBIDDEN)
 public class SimpleLockJcstressTest {
-    final SimpleLock lock = new JavaMeetupLock();
+    final SimpleLock lock = new JavaMeetupLock(false);
 
     int x;
 

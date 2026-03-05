@@ -31,7 +31,8 @@ class SimpleLockTest {
     }
 
     enum LockImpl {
-		JAVA_MEETUP(JavaMeetupLock::new);
+		JAVA_MEETUP_FAIR(() -> new JavaMeetupLock(true)),
+		JAVA_MEETUP_UNFAIR(() -> new JavaMeetupLock(false));
 
         final Supplier<SimpleLock> factory;
 
