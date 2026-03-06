@@ -4,11 +4,11 @@ interface SimpleLock {
     void lock();
     void unlock();
 
-    default boolean isReentrant() {
+    default boolean hasCheckedUnlock() {
         return false;
     }
 
-    default boolean hasCheckedUnlock() {
+    default boolean isReentrant() {
         return false;
     }
 

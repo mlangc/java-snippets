@@ -67,7 +67,7 @@ class SimpleLockTest {
 									lock.runWithLock(sharedLongs::incrementAll);
 								}
 
-								if (lock.hasCheckedUnlock() & (i & 0xFF) == 0xFF) {
+								if (lock.hasCheckedUnlock() && (i & 0xFF) == 0xFF) {
 									assertThatExceptionOfType(IllegalMonitorStateException.class).isThrownBy(lock::unlock);
 								}
 							}
