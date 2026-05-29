@@ -1,12 +1,17 @@
 package at.mlangc.concurrent.task.dispatcher;
 
 import org.apache.commons.lang3.mutable.MutableInt;
+import org.awaitility.Awaitility;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -16,6 +21,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 
 class SynchronizingTaskDispatcherTest {
+    static ExecutorService executor;
+
+    @BeforeAll
+    static void beforeAll() {
+        executor = Executors.newWorkStealingPool(4);
+    }
+
+    @AfterAll
+    static void afterAll() throws InterruptedException {
+        executor.shutdown();
+        assertThat(executor.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+    }
+
 
     @ParameterizedTest
     @MethodSource("synchronizingIntegerTaskDispatchers")
@@ -128,6 +146,121 @@ class SynchronizingTaskDispatcherTest {
 
         assertThat(Arrays.stream(individualCounters)).allMatch(c -> c >= 0);
         assertThat(Arrays.stream(setCounters)).allMatch(c -> c >= 0);
+    }
+
+
+    @ParameterizedTest
+    @MethodSource("synchronizingIntegerTaskDispatchers")
+    void shouldProperlySynchronizeExecutionWhenCalledFromMultipleThreads(SynchronizingTaskDispatcher<Integer> dispatcher) {
+        var list0 = new ArrayList<Integer>();
+        var list1 = new ArrayList<Integer>();
+
+        var start0 = -25_000;
+        var start1 = 0;
+
+        list0.add(start0);
+        list1.add(start1);
+
+        var tasksPerJob = 10_000;
+        var numJobs = 5;
+
+        IntFunction<Supplier<CompletableFuture<Void>>> mkJob = seed -> () -> {
+            var rng = new Random(seed);
+
+            return CompletableFuture.allOf(
+                    IntStream.range(0, tasksPerJob)
+                            .mapToObj(_ -> {
+                                var synchronizerBits = rng.nextInt(1, 4);
+                                var synchronizers = IntStream.range(0, 4)
+                                        .filter(bit -> ((1 << bit) & synchronizerBits) != 0)
+                                        .boxed()
+                                        .collect(Collectors.toUnmodifiableSet());
+
+                                Runnable task = () -> {
+                                    for (var s : synchronizers) {
+                                        var list = s == 0 ? list0 : (s == 1) ? list1 : null;
+
+                                        if (list != null) {
+                                            list.add(list.getLast() + 1);
+                                        }
+                                    }
+                                };
+
+                                return dispatcher.dispatch(synchronizers, task);
+                            }).toArray(CompletableFuture<?>[]::new));
+        };
+
+        var allJobs = IntStream.range(0, numJobs)
+                .mapToObj(i -> CompletableFuture.supplyAsync(mkJob.apply(i), executor))
+                .map(f -> f.thenCompose(Function.identity()))
+                .toArray(CompletableFuture<?>[]::new);
+
+        assertThat(CompletableFuture.allOf(allJobs)).succeedsWithin(5, TimeUnit.SECONDS);
+
+        assertThat(List.of(list0, list1))
+                .allSatisfy(list -> {
+                    for (int i = 1; i < list.size(); i++) {
+                        assertThat(list.get(i)).isEqualTo(list.get(i - 1) + 1);
+                    }
+                });
+    }
+
+    @Test
+    void shouldRespectMaxTasksInFlight() throws InterruptedException {
+        var maxTasksInFlight = 17;
+        var queue = new ArrayBlockingQueue<Runnable>(maxTasksInFlight * 10);
+
+        try (var executor = new ThreadPoolExecutor(1, 1, 1, TimeUnit.MINUTES, queue)) {
+            var dispatcher = new SynchronizingTaskDispatcher<String>(maxTasksInFlight);
+            var lock = new ReentrantLock();
+            lock.lock();
+            try {
+                Runnable dispatchJob = () -> {
+                    lock.lock();
+                    lock.unlock();
+                };
+
+                Supplier<CompletableFuture<?>> submitDispatchJobs = () ->
+                   CompletableFuture.allOf(
+                            IntStream.range(0, maxTasksInFlight * 2)
+                                    .mapToObj(_ -> dispatcher.dispatchAsync(AsyncTask.of(dispatchJob, executor)))
+                                    .toArray(CompletableFuture<?>[]::new));
+
+                var submitJob = CompletableFuture.supplyAsync(submitDispatchJobs).thenCompose(f -> f);
+                Awaitility.await().atMost(1, TimeUnit.SECONDS).untilAsserted(() -> assertThat(queue).hasSize(maxTasksInFlight - 1));
+                Thread.sleep(10);
+                assertThat(queue).hasSize(maxTasksInFlight - 1);
+
+                lock.unlock();
+                assertThat(submitJob).succeedsWithin(1, TimeUnit.SECONDS);
+            } finally {
+                while (lock.isLocked()) {
+                    lock.unlock();
+                }
+            }
+
+        }
+    }
+
+    @Test
+    void shouldNotRunIntoOomsNeedlessly() {
+        var dispatcher = new SynchronizingTaskDispatcher<Integer>(5000);
+        var largeArray = new byte[1 << 19];
+        var totalAlloc = 1L << 35;
+        var numTasks = Math.toIntExact(totalAlloc / largeArray.length);
+
+        Supplier<byte[]> allocatingJob = largeArray::clone;
+        var keepAlive = new ArrayList<Integer>();
+
+        var allocatingJobs = CompletableFuture.allOf(
+            IntStream.range(0, numTasks)
+                    .boxed()
+                    .peek(keepAlive::add)
+                    .map(l -> dispatcher.dispatch(l, allocatingJob).thenApply(_ -> null))
+                    .toArray(CompletableFuture<?>[]::new));
+
+        assertThat(keepAlive).hasSize(numTasks);
+        assertThat(allocatingJobs).succeedsWithin(5, TimeUnit.SECONDS);
     }
 
     static List<SynchronizingTaskDispatcher<Integer>> synchronizingIntegerTaskDispatchers() {

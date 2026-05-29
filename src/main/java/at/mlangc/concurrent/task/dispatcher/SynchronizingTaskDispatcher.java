@@ -3,10 +3,7 @@ package at.mlangc.concurrent.task.dispatcher;
 import com.google.common.base.Preconditions;
 import org.apache.commons.lang3.exception.UncheckedInterruptedException;
 
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.WeakHashMap;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -33,39 +30,40 @@ public class SynchronizingTaskDispatcher<S> {
             }
 
             tasksInFlight++;
-            var restoreNeeded = true;
-            try {
-                var waitFor = CompletableFuture.allOf(
-                        synchronizers.stream()
-                                .map(futureChains::get)
-                                .filter(Objects::nonNull)
-                                .toArray(CompletableFuture<?>[]::new));
+            var waitFor = CompletableFuture.allOf(
+                    synchronizers.stream()
+                            .map(futureChains::get)
+                            .filter(Objects::nonNull)
+                            .toArray(CompletableFuture<?>[]::new));
 
-                var newChain = waitFor.exceptionally(_ -> null).thenCompose(_ -> {
-                    try {
-                        return task.execute().whenComplete((_, _) -> {
-                            lock.lock();
-                            releaseTaskInFlightAssumeLocked();
-                            lock.unlock();
-                        });
-                    } catch (Exception e) {
-                        lock.lock();
-                        releaseTaskInFlightAssumeLocked();
-                        lock.unlock();
-                        return CompletableFuture.failedFuture(e);
+            var newChain = waitFor.exceptionally(_ -> null).thenCompose(_ -> {
+                try {
+                    return task.execute();
+                } catch (Exception e) {
+                    lock.lock();
+                    releaseTaskInFlightAssumeLocked();
+                    lock.unlock();
+                    return CompletableFuture.failedFuture(e);
+                }
+            });
+
+            synchronizers.forEach(s -> futureChains.put(s, newChain));
+
+            newChain.whenComplete((_, _) -> {
+                lock.lock();
+                releaseTaskInFlightAssumeLocked();
+
+                synchronizers.forEach(s -> {
+                    var chain = futureChains.get(s);
+                    if (chain != null && chain.isDone()) {
+                        futureChains.remove(s);
                     }
                 });
 
-                restoreNeeded = false;
-                synchronizers.forEach(s -> futureChains.put(s, newChain));
-                return newChain;
-            } catch (Exception e) {
-                if (restoreNeeded) {
-                    releaseTaskInFlightAssumeLocked();
-                }
+                lock.unlock();
+            });
 
-                throw e;
-            }
+            return newChain;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new UncheckedInterruptedException(e);
@@ -84,12 +82,16 @@ public class SynchronizingTaskDispatcher<S> {
         return dispatchAsync(synchronizers, AsyncTask.of(task));
     }
 
+    public CompletableFuture<Void> dispatch(Set<S> synchronizers, Runnable task) {
+        return dispatchAsync(synchronizers, AsyncTask.of(task));
+    }
+
     public <T> CompletableFuture<T> dispatchAsync(S synchronizer, AsyncTask<T> task) {
         return dispatchAsync(Set.of(synchronizer), task);
     }
 
-    public <T> CompletableFuture<T> dispatch(S synchronizers, Supplier<T> task) {
-        return dispatchAsync(synchronizers, AsyncTask.of(task));
+    public <T> CompletableFuture<T> dispatch(S synchronizer, Supplier<T> task) {
+        return dispatchAsync(synchronizer, AsyncTask.of(task));
     }
 
     public <T> CompletableFuture<T> dispatchAsync(AsyncTask<T> task) {
@@ -97,6 +99,10 @@ public class SynchronizingTaskDispatcher<S> {
     }
 
     public <T> CompletableFuture<T> dispatch(Supplier<T> task) {
+        return dispatchAsync(AsyncTask.of(task));
+    }
+
+    public CompletableFuture<Void> dispatch(Runnable task) {
         return dispatchAsync(AsyncTask.of(task));
     }
 
