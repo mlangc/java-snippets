@@ -18,7 +18,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.*;
 
 
 class SynchronizingTaskDispatcherTest {
@@ -355,6 +355,80 @@ class SynchronizingTaskDispatcherTest {
         } finally {
             latch.countDown();
         }
+    }
+
+    @Test
+    void shouldNotLeakTasksInFlightWhenEqualsOrHashCodeOfSynchronizerObjectThrows() {
+        class TestSynchronizer {
+            final String id;
+            boolean hashCodeThrows;
+            boolean equalsThrows;
+
+
+            TestSynchronizer(String id, boolean hashCodeThrows, boolean equalsThrows) {
+                this.id = id;
+                this.hashCodeThrows = hashCodeThrows;
+                this.equalsThrows = equalsThrows;
+            }
+
+            TestSynchronizer(String id) {
+                this(id, false, false);
+            }
+
+            @Override
+            public int hashCode() {
+                if (hashCodeThrows) {
+                    throw new RuntimeException("hashCode intentionally broken");
+                }
+
+                return id.hashCode();
+            }
+
+            @Override
+            public boolean equals(Object obj) {
+                if (equalsThrows) {
+                    throw new RuntimeException("equals intentionally broken");
+                }
+
+                return (obj instanceof TestSynchronizer testSynchronizer && id.equals(testSynchronizer.id));
+            }
+        }
+
+        Runnable testRunner = () -> {
+            var latch = new CountDownLatch(1);
+            try {
+                var dispatcher = new SynchronizingTaskDispatcher<TestSynchronizer>(2);
+                var sa = new TestSynchronizer("a");
+                var saa = new TestSynchronizer(sa.id);
+
+                var sb = new TestSynchronizer("b");
+                var sbb = new TestSynchronizer(sb.id);
+
+                var blockedTask = dispatcher.dispatch(Set.of(sa, sb), () -> {
+                    awaitUncheckedInterrupt(latch);
+                    return 42;
+                });
+
+                sa.equalsThrows = true;
+                saa.equalsThrows = true;
+                assertThatRuntimeException().isThrownBy(() -> dispatcher.dispatch(saa, () -> { }));
+
+                sb.hashCodeThrows = true;
+                sbb.hashCodeThrows = true;
+                assertThatRuntimeException().isThrownBy(() -> dispatcher.dispatch(sbb, () -> { }));
+
+                sa.equalsThrows = false;
+                sb.hashCodeThrows = false;
+
+                latch.countDown();
+                assertThat(blockedTask).succeedsWithin(1, TimeUnit.SECONDS).isEqualTo(42);
+                assertThat(dispatcher.dispatch(Set.of(sa, sb), () -> 42)).succeedsWithin(1, TimeUnit.SECONDS).isEqualTo(42);
+            } finally {
+                latch.countDown();
+            }
+        };
+
+        assertThat(CompletableFuture.runAsync(testRunner, executor)).succeedsWithin(5, TimeUnit.SECONDS);
     }
 
     private static void awaitUncheckedInterrupt(CountDownLatch latch) {

@@ -9,7 +9,7 @@ wakeups), the in-flight slot is released whether the task throws, returns a fail
 with an `Error`, and the entry map no longer grows unboundedly. The points below are the remaining
 rough edges.
 
-## 1. Slot leak if an unchecked throwable escapes between `tasksInFlight++` and registering the callback
+## 1. Slot leak if an unchecked throwable escapes between `tasksInFlight++` and registering the callback — ✅ CLOSED
 
 `tasksInFlight++` happens early in `dispatchAsync`, but the `newChain.whenComplete(...)` that releases
 the slot is only registered several statements later. If anything in between — the
@@ -26,6 +26,10 @@ That slot is leaked permanently. Once enough leak to reach `maxTasksInFlight`, e
 - **Fix direction:** wrap the region from `tasksInFlight++` through registering the `whenComplete`
   callback in a try/catch that calls `releaseTaskInFlightAssumeLocked()` before rethrowing, restoring
   the invariant "counter incremented ⟺ a release is guaranteed to run."
+- **Resolution:** the region from `tasksInFlight++` through `futureChains.put(...)` is now wrapped in a
+  `try/catch (Exception)` that releases the slot before rethrowing (`dispatchAsync`). Scope is `Exception`
+  by policy — `Error`-typed throwables are intentionally not handled. Covered by
+  `SynchronizingTaskDispatcherTest#shouldNotLeakTasksInFlightWhenEqualsOrHashCodeOfSynchronizerObjectThrows`.
 
 ## 2. Reentrant / self-dispatch on the same key deadlocks (design footgun)
 

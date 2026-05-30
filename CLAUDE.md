@@ -67,3 +67,10 @@ The primary goal of this repository is to foster understanding. This implies tha
 handwritten, unless explicitly stated otherwise.
 
 Assist with explanation, review, and tooling, but do not generate implementations unless explicitly asked.
+
+## Coding conventions
+
+- **Catch `Exception`, never `Error` or bare `Throwable`.** Keeping invariants consistent in the face of
+  `Error`-typed throwables is impossible and should not be attempted. When reviewing resource-release or
+  invariant-restoration code, treat `catch (Exception e)` as the intended scope — do not flag the unhandled
+  `Error` case as a defect or suggest widening the catch.

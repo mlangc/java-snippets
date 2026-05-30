@@ -45,21 +45,28 @@ public class SynchronizingTaskDispatcher<S> {
             }
 
             tasksInFlight++;
-            var waitFor = CompletableFuture.allOf(
-                    synchronizers.stream()
-                            .map(futureChains::get)
-                            .filter(Objects::nonNull)
-                            .toArray(CompletableFuture<?>[]::new));
+            CompletableFuture<T> newChain;
+            try {
+                var waitFor = CompletableFuture.allOf(
+                        synchronizers.stream()
+                                .map(futureChains::get)
+                                .filter(Objects::nonNull)
+                                .toArray(CompletableFuture<?>[]::new));
 
-            var newChain = waitFor.exceptionally(_ -> null).thenCompose(_ -> {
-                try {
-                    return task.execute();
-                } catch (Exception e) {
-                    return CompletableFuture.failedFuture(e);
-                }
-            });
+                newChain = waitFor.exceptionally(_ -> null).thenCompose(_ -> {
+                    try {
+                        return task.execute();
+                    } catch (Exception e) {
+                        return CompletableFuture.failedFuture(e);
+                    }
+                });
 
-            synchronizers.forEach(s -> futureChains.put(s, newChain));
+                synchronizers.forEach(s -> futureChains.put(s, newChain));
+            } catch (Exception e) {
+                releaseTaskInFlightAssumeLocked();
+                throw e;
+            }
+
 
             newChain.whenComplete((_, _) -> {
                 lock.lock();
