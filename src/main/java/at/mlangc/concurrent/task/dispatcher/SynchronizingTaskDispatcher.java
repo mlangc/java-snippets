@@ -26,7 +26,7 @@ import java.util.function.Supplier;
  * @param <S> the type used to identify synchronizer keys
  */
 public class SynchronizingTaskDispatcher<S> {
-    private final Map<S, CompletableFuture<?>> futureChains = new WeakHashMap<>();
+    private final Map<S, CompletableFuture<?>> futureChains = new HashMap<>();
     private final int maxTasksInFlight;
     private int tasksInFlight;
     private final Lock lock = new ReentrantLock();
@@ -105,6 +105,10 @@ public class SynchronizingTaskDispatcher<S> {
     }
 
     public <T> CompletableFuture<T> dispatch(S synchronizer, Supplier<T> task) {
+        return dispatchAsync(synchronizer, AsyncTask.of(task));
+    }
+
+    public <T> CompletableFuture<Void> dispatch(S synchronizer, Runnable task) {
         return dispatchAsync(synchronizer, AsyncTask.of(task));
     }
 

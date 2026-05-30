@@ -8,8 +8,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.lang.ref.WeakReference;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 import java.util.function.IntFunction;
@@ -311,6 +314,162 @@ class SynchronizingTaskDispatcherTest {
 
         assertThat(keepAlive).hasSize(numTasks);
         assertThat(allocatingJobs).succeedsWithin(5, TimeUnit.SECONDS);
+    }
+
+    @ParameterizedTest
+    @MethodSource("synchronizingIntegerTaskDispatchers")
+    void errorsShouldBePropagatedProperly(SynchronizingTaskDispatcher<Integer> dispatcher) {
+        String errMsg = ":-O";
+        AsyncTask<Void> throwingTask = () -> { throw new RuntimeException(errMsg); };
+        AsyncTask<Void> failingTask = AsyncTask.of(() -> { throw new RuntimeException(errMsg); });
+
+        assertThat(dispatcher.dispatchAsync(throwingTask))
+                .failsWithin(1, TimeUnit.SECONDS)
+                .withThrowableThat().havingRootCause()
+                .withMessage(errMsg);
+
+        assertThat(dispatcher.dispatchAsync(failingTask))
+                .failsWithin(1, TimeUnit.SECONDS)
+                .withThrowableThat().havingRootCause()
+                .withMessage(errMsg);
+    }
+
+    /**
+     * Probes the {@link java.util.WeakHashMap} that backs the synchronizer -> chain map. Synchronizer keys are compared
+     * by {@code equals}, but callers may legitimately hand in distinct-but-equal key objects on successive dispatches
+     * (e.g. freshly boxed {@code Integer}s, {@code new String(...)}, value objects). When that happens the map entry stays
+     * keyed by the <em>first</em> key object (that is how {@code WeakHashMap.put} updates an existing entry), while the
+     * value (the live chain) only keeps the <em>latest</em> key reachable. Once the first task completes, its key object
+     * can be collected, the entry is expunged, and a later dispatch on an equal synchronizer no longer chains behind the
+     * still running task -- breaking serialization.
+     */
+    @Test
+    void shouldKeepSerializingWhenEarlierSynchronizerKeyObjectIsGarbageCollected() throws Exception {
+        var taskExecutor = Executors.newFixedThreadPool(4);
+        try {
+            var dispatcher = new SynchronizingTaskDispatcher<String>(100);
+
+            var t1Started = new CountDownLatch(1);
+            var t1Release = new CountDownLatch(1);
+            var t2Started = new CountDownLatch(1);
+            var t2Release = new CountDownLatch(1);
+            var t2Active = new AtomicBoolean(false);
+            var t3RanWhileT2Active = new AtomicBoolean(false);
+
+            // T1 blocks; we keep only a WeakReference to its (non-interned) synchronizer key.
+            var key1 = new String("sync");
+            var key1Ref = new WeakReference<>(key1);
+            var f1 = dispatcher.dispatchAsync(key1, AsyncTask.of(() -> {
+                t1Started.countDown();
+                awaitUninterruptibly(t1Release);
+                return 1;
+            }, taskExecutor));
+            //noinspection UnusedAssignment
+            key1 = null;
+
+            assertThat(t1Started.await(2, TimeUnit.SECONDS)).isTrue();
+
+            // T2 uses an equal-but-distinct key; it chains behind T1, then blocks while flagging itself active.
+            var f2 = dispatcher.dispatchAsync(new String("sync"), AsyncTask.of(() -> {
+                t2Active.set(true);
+                t2Started.countDown();
+                awaitUninterruptibly(t2Release);
+                t2Active.set(false);
+                return 2;
+            }, taskExecutor));
+
+            // Let T1 finish. Its key object now has no strong referrer, yet the map entry is still keyed by it and its
+            // value is T2's (still running) chain.
+            t1Release.countDown();
+            assertThat(f1).succeedsWithin(2, TimeUnit.SECONDS);
+            assertThat(t2Started.await(2, TimeUnit.SECONDS)).isTrue();
+
+            // Best-effort nudge for the GC to reclaim the first key object. With a buggy WeakHashMap backing the chains
+            // this expunges the still-needed entry; with a correct (strong-keyed) map the entry keeps the key reachable
+            // and nothing is collected. We do NOT assert that it was collected -- that would only hold for the buggy
+            // variant. The serialization assertions below are what must hold regardless.
+            for (var i = 0; i < 10 && key1Ref.get() != null; i++) {
+                System.gc();
+                Thread.sleep(20);
+            }
+
+            // T3 uses the same synchronizer value -> it must wait for T2, which is still running (blocked).
+            var f3 = dispatcher.dispatchAsync(new String("sync"), AsyncTask.of(() -> {
+                if (t2Active.get()) {
+                    t3RanWhileT2Active.set(true);
+                }
+                return 3;
+            }, taskExecutor));
+
+            Thread.sleep(200);
+            var f3DoneWhileT2Blocked = f3.isDone();
+
+            t2Release.countDown();
+            assertThat(f2).succeedsWithin(2, TimeUnit.SECONDS);
+            assertThat(f3).succeedsWithin(2, TimeUnit.SECONDS);
+
+            assertThat(f3DoneWhileT2Blocked)
+                    .as("T3 finished while T2 (sharing its synchronizer) was still running")
+                    .isFalse();
+            assertThat(t3RanWhileT2Active)
+                    .as("T3 ran concurrently with T2 despite sharing a synchronizer")
+                    .isFalse();
+        } finally {
+            taskExecutor.shutdownNow();
+        }
+    }
+
+    @Test
+    void tasksWithNonIntersectingSynchronizersDoNotBlockEachOther() throws InterruptedException {
+        var dispatcher = new SynchronizingTaskDispatcher<Integer>(1000);
+
+        var counter0 = new AtomicInteger();
+        var counter1 = new MutableInt();
+        var counter2 = new MutableInt();
+        var latch = new Semaphore(1);
+        try {
+            latch.acquire();
+            var incCounter1Blocked = dispatcher.dispatch(1, () -> {
+                latch.acquireUninterruptibly();
+                counter1.increment();
+                latch.release();
+            });
+
+            var incCounter0 = dispatcher.dispatch(counter0::incrementAndGet);
+            var incCounter2 = dispatcher.dispatch(2, counter2::incrementAndGet);
+
+            assertThat(incCounter0).succeedsWithin(1, TimeUnit.SECONDS).isEqualTo(1);
+            assertThat(incCounter2).succeedsWithin(1, TimeUnit.SECONDS).isEqualTo(1);
+
+            var incCounter12Blocked = dispatcher.dispatch(Set.of(1, 2), () -> {
+                counter1.increment();
+                counter2.increment();
+            });
+
+            assertThat(incCounter1Blocked).isNotDone();
+            assertThat(incCounter12Blocked).isNotDone();
+
+            latch.release();
+            assertThat(incCounter1Blocked).succeedsWithin(1, TimeUnit.SECONDS);
+            assertThat(incCounter12Blocked).succeedsWithin(1, TimeUnit.SECONDS);
+
+            assertThat(counter1.intValue()).isEqualTo(counter2.intValue()).isEqualTo(2);
+        } finally {
+            if (latch.availablePermits() == 0) {
+                latch.release();
+            }
+        }
+    }
+
+    private static void awaitUninterruptibly(CountDownLatch latch) {
+        try {
+            if (!latch.await(5, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("latch timed out");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
     }
 
     static List<SynchronizingTaskDispatcher<Integer>> synchronizingIntegerTaskDispatchers() {
