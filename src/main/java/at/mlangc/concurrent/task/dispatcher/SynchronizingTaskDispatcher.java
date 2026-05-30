@@ -108,7 +108,7 @@ public class SynchronizingTaskDispatcher<S> {
         return dispatchAsync(synchronizer, AsyncTask.of(task));
     }
 
-    public <T> CompletableFuture<Void> dispatch(S synchronizer, Runnable task) {
+    public CompletableFuture<Void> dispatch(S synchronizer, Runnable task) {
         return dispatchAsync(synchronizer, AsyncTask.of(task));
     }
 
