@@ -244,18 +244,22 @@ class SynchronizingTaskDispatcherTest {
     }
 
     @Test
-    void shouldRespectMaxTasksInFlightEvenWhenExecuteThrows() throws InterruptedException {
+    void shouldRespectMaxTasksInFlightEvenWhenExecuteReturnsFailedFutureOrThrows() throws InterruptedException {
         var maxTasksInFlight = 17;
         var numThrowingTasks = 3;
+        var numFailingTasks = 3;
         var poolSize = 1;
         var queue = new ArrayBlockingQueue<Runnable>(maxTasksInFlight * 10);
 
         try (var executor = new ThreadPoolExecutor(poolSize, poolSize, 1, TimeUnit.MINUTES, queue)) {
             var dispatcher = new SynchronizingTaskDispatcher<String>(maxTasksInFlight);
 
-
             AsyncTask<Void> throwingTask = () -> { throw new RuntimeException(":-O"); };
             assertThat(IntStream.range(0, numThrowingTasks).mapToObj(_ -> dispatcher.dispatchAsync(throwingTask)))
+                    .allSatisfy(f -> assertThat(f).failsWithin(1, TimeUnit.SECONDS));
+
+            AsyncTask<Void> failingTask = AsyncTask.of(() -> { throw new RuntimeException(":-("); });
+            assertThat(IntStream.range(0, numFailingTasks).mapToObj(_ -> dispatcher.dispatchAsync(failingTask)))
                     .allSatisfy(f -> assertThat(f).failsWithin(1, TimeUnit.SECONDS));
 
             var lock = new ReentrantLock();

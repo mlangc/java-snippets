@@ -63,16 +63,18 @@ public class SynchronizingTaskDispatcher<S> {
 
             newChain.whenComplete((_, _) -> {
                 lock.lock();
-                releaseTaskInFlightAssumeLocked();
+                try {
+                    releaseTaskInFlightAssumeLocked();
 
-                synchronizers.forEach(s -> {
-                    var chain = futureChains.get(s);
-                    if (chain != null && chain.isDone()) {
-                        futureChains.remove(s);
-                    }
-                });
-
-                lock.unlock();
+                    synchronizers.forEach(s -> {
+                        var chain = futureChains.get(s);
+                        if (chain != null && chain.isDone()) {
+                            futureChains.remove(s);
+                        }
+                    });
+                } finally {
+                    lock.unlock();
+                }
             });
 
             return newChain;
