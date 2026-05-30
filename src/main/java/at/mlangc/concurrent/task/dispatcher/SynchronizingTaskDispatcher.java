@@ -23,6 +23,17 @@ import java.util.function.Supplier;
  *       may run in parallel, subject to the global cap.</li>
  * </ol>
  *
+ * <h4>Attention: dispatching from within a task is unsafe</h4>
+ * This dispatcher is <b>non-reentrant</b>. A task that dispatches another task into the
+ * same dispatcher from within its own body can <b>deadlock</b>:
+ * <ul>
+ *   <li>if the inner task shares a synchronizer with the outer task and the outer task
+ *       <b>waits</b> on the inner result — the inner task is serialized behind the outer,
+ *       which cannot complete until it returns; or</li>
+ *   <li>if the global concurrency cap is already reached — the inner dispatch blocks waiting
+ *       for a slot that only the (still-running) outer task can release, regardless of keys.</li>
+ * </ul>
+ *
  * @param <S> the type used to identify synchronizer keys
  */
 public class SynchronizingTaskDispatcher<S> {

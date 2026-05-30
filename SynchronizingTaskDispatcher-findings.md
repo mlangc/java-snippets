@@ -31,7 +31,7 @@ That slot is leaked permanently. Once enough leak to reach `maxTasksInFlight`, e
   by policy — `Error`-typed throwables are intentionally not handled. Covered by
   `SynchronizingTaskDispatcherTest#shouldNotLeakTasksInFlightWhenEqualsOrHashCodeOfSynchronizerObjectThrows`.
 
-## 2. Reentrant / self-dispatch on the same key deadlocks (design footgun)
+## 2. Reentrant / self-dispatch on the same key deadlocks (design footgun) — ✅ CLOSED
 
 A task that, from inside its own body, dispatches another task sharing one of its own synchronizers
 and then waits on that result will deadlock: the inner task chains *behind* the still-running outer
@@ -40,3 +40,8 @@ task's chain, which cannot complete until the outer task returns.
 This is inherent to "serialize by key" combined with the in-flight cap (a task awaiting a slot also
 occupies its own), not a coding mistake. Worth a sentence in the class Javadoc so callers know not to
 block-wait on a same-key dispatch from within a task.
+
+- **Resolution:** documented in the class Javadoc under "Attention: dispatching from within a task is
+  unsafe". The note covers both deadlock modes: (a) the key-serialization case — sharing a synchronizer
+  with the outer task and waiting on the inner result — and (b) the cap case — a reentrant dispatch
+  blocking for a slot only the still-running outer task can release, regardless of keys.
