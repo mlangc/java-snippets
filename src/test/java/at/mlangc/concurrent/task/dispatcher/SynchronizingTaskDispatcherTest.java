@@ -209,8 +209,9 @@ class SynchronizingTaskDispatcherTest {
     void shouldRespectMaxTasksInFlight() throws InterruptedException {
         var maxTasksInFlight = 17;
         var queue = new ArrayBlockingQueue<Runnable>(maxTasksInFlight * 10);
+        var poolSize = 1;
 
-        try (var executor = new ThreadPoolExecutor(1, 1, 1, TimeUnit.MINUTES, queue)) {
+        try (var executor = new ThreadPoolExecutor(poolSize, poolSize, 1, TimeUnit.MINUTES, queue)) {
             var dispatcher = new SynchronizingTaskDispatcher<String>(maxTasksInFlight);
             var lock = new ReentrantLock();
             lock.lock();
@@ -221,15 +222,15 @@ class SynchronizingTaskDispatcherTest {
                 };
 
                 Supplier<CompletableFuture<?>> submitDispatchJobs = () ->
-                   CompletableFuture.allOf(
-                            IntStream.range(0, maxTasksInFlight * 2)
-                                    .mapToObj(_ -> dispatcher.dispatchAsync(AsyncTask.of(dispatchJob, executor)))
-                                    .toArray(CompletableFuture<?>[]::new));
+                        CompletableFuture.allOf(
+                                IntStream.range(0, maxTasksInFlight * 2)
+                                        .mapToObj(_ -> dispatcher.dispatchAsync(AsyncTask.of(dispatchJob, executor)))
+                                        .toArray(CompletableFuture<?>[]::new));
 
                 var submitJob = CompletableFuture.supplyAsync(submitDispatchJobs).thenCompose(f -> f);
-                Awaitility.await().atMost(1, TimeUnit.SECONDS).untilAsserted(() -> assertThat(queue).hasSize(maxTasksInFlight - 1));
+                Awaitility.await().atMost(1, TimeUnit.SECONDS).untilAsserted(() -> assertThat(queue).hasSize(maxTasksInFlight - poolSize));
                 Thread.sleep(10);
-                assertThat(queue).hasSize(maxTasksInFlight - 1);
+                assertThat(queue).hasSize(maxTasksInFlight - poolSize);
 
                 lock.unlock();
                 assertThat(submitJob).succeedsWithin(1, TimeUnit.SECONDS);
@@ -239,6 +240,51 @@ class SynchronizingTaskDispatcherTest {
                 }
             }
 
+        }
+    }
+
+    @Test
+    void shouldRespectMaxTasksInFlightEvenWhenExecuteThrows() throws InterruptedException {
+        var maxTasksInFlight = 17;
+        var numThrowingTasks = 3;
+        var poolSize = 1;
+        var queue = new ArrayBlockingQueue<Runnable>(maxTasksInFlight * 10);
+
+        try (var executor = new ThreadPoolExecutor(poolSize, poolSize, 1, TimeUnit.MINUTES, queue)) {
+            var dispatcher = new SynchronizingTaskDispatcher<String>(maxTasksInFlight);
+
+
+            AsyncTask<Void> throwingTask = () -> { throw new RuntimeException(":-O"); };
+            assertThat(IntStream.range(0, numThrowingTasks).mapToObj(_ -> dispatcher.dispatchAsync(throwingTask)))
+                    .allSatisfy(f -> assertThat(f).failsWithin(1, TimeUnit.SECONDS));
+
+            var lock = new ReentrantLock();
+            lock.lock();
+            try {
+                Runnable dispatchJob = () -> {
+                    lock.lock();
+                    lock.unlock();
+                };
+
+                Supplier<CompletableFuture<?>> submitDispatchJobs = () ->
+                        CompletableFuture.allOf(
+                                IntStream.range(0, maxTasksInFlight * 2)
+                                        .mapToObj(_ -> dispatcher.dispatchAsync(AsyncTask.of(dispatchJob, executor)))
+                                        .toArray(CompletableFuture<?>[]::new));
+
+                var submitJob = CompletableFuture.supplyAsync(submitDispatchJobs).thenCompose(f -> f);
+                Awaitility.await().atMost(1, TimeUnit.SECONDS)
+                        .untilAsserted(() -> assertThat(queue).hasSizeGreaterThanOrEqualTo(maxTasksInFlight - poolSize));
+                Thread.sleep(10);
+                assertThat(queue).hasSize(maxTasksInFlight - poolSize);
+
+                lock.unlock();
+                assertThat(submitJob).succeedsWithin(1, TimeUnit.SECONDS);
+            } finally {
+                while (lock.isLocked()) {
+                    lock.unlock();
+                }
+            }
         }
     }
 
@@ -253,11 +299,11 @@ class SynchronizingTaskDispatcherTest {
         var keepAlive = new ArrayList<Integer>();
 
         var allocatingJobs = CompletableFuture.allOf(
-            IntStream.range(0, numTasks)
-                    .boxed()
-                    .peek(keepAlive::add)
-                    .map(l -> dispatcher.dispatch(l, allocatingJob).thenApply(_ -> null))
-                    .toArray(CompletableFuture<?>[]::new));
+                IntStream.range(0, numTasks)
+                        .boxed()
+                        .peek(keepAlive::add)
+                        .map(l -> dispatcher.dispatch(l, allocatingJob).thenApply(_ -> null))
+                        .toArray(CompletableFuture<?>[]::new));
 
         assertThat(keepAlive).hasSize(numTasks);
         assertThat(allocatingJobs).succeedsWithin(5, TimeUnit.SECONDS);

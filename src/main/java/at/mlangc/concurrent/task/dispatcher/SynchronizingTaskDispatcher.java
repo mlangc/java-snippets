@@ -10,6 +10,21 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
+/**
+ * An async task dispatcher that enforces two constraints:
+ *
+ * <ol>
+ *   <li><b>Global concurrency cap:</b> At most {@code maxTasksInFlight} tasks are scheduled to execute concurrently.
+ *       If the cap is reached, the dispatching thread blocks until a slot becomes available,
+ *       providing backpressure to the caller.</li>
+ *   <li><b>Per-key serialization:</b> Tasks declared with overlapping synchronizer keys are
+ *       executed in dispatch order — a task waits for all previously dispatched tasks that share
+ *       any of its synchronizers to complete (successfully or with an error) before it starts. Tasks with no common synchronizers
+ *       may run in parallel, subject to the global cap.</li>
+ * </ol>
+ *
+ * @param <S> the type used to identify synchronizer keys
+ */
 public class SynchronizingTaskDispatcher<S> {
     private final Map<S, CompletableFuture<?>> futureChains = new WeakHashMap<>();
     private final int maxTasksInFlight;
@@ -40,9 +55,6 @@ public class SynchronizingTaskDispatcher<S> {
                 try {
                     return task.execute();
                 } catch (Exception e) {
-                    lock.lock();
-                    releaseTaskInFlightAssumeLocked();
-                    lock.unlock();
                     return CompletableFuture.failedFuture(e);
                 }
             });
