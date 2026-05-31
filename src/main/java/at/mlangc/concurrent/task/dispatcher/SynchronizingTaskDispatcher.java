@@ -23,7 +23,7 @@ import java.util.function.Supplier;
  *       may run in parallel, subject to the global cap.</li>
  * </ol>
  *
- * <h4>Attention: dispatching from within a task is unsafe</h4>
+ * <h4>Attention: dispatching from within a dispatched task is unsafe</h4>
  * This dispatcher is <b>non-reentrant</b>. A task that dispatches another task into the
  * same dispatcher from within its own body can <b>deadlock</b>:
  * <ul>

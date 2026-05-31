@@ -35,6 +35,27 @@ class SynchronizingTaskDispatcherTest {
         assertThat(executor.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
     }
 
+    @Test
+    void shouldWorkInDemo1() {
+        var listA = new ArrayList<>();
+        var listB = new ArrayList<>();
+
+        var dispatcher = new SynchronizingTaskDispatcher<String>(10_000);
+        var futures = new ArrayList<CompletableFuture<?>>();
+
+        futures.add(dispatcher.dispatch("a", () -> listA.add(0)));
+        futures.add(dispatcher.dispatch("b", () -> listB.add(0)));
+
+        futures.add(dispatcher.dispatch(Set.of("a", "b"), () -> {
+            listA.add(1);
+            listB.add(1);
+            listB.add(2);
+        }));
+
+        assertThat(CompletableFuture.allOf(futures.toArray(CompletableFuture<?>[]::new))).succeedsWithin(1, TimeUnit.SECONDS);
+        assertThat(listA).containsExactly(0, 1);
+        assertThat(listB).containsExactly(0, 1, 2);
+    }
 
     @ParameterizedTest
     @MethodSource("synchronizingIntegerTaskDispatchers")
