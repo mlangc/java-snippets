@@ -3,7 +3,10 @@ package at.mlangc.concurrent.task.dispatcher;
 import com.google.common.base.Preconditions;
 import org.apache.commons.lang3.exception.UncheckedInterruptedException;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -14,8 +17,8 @@ import java.util.function.Supplier;
  * An async task dispatcher that enforces two constraints:
  *
  * <ol>
- *   <li><b>Global concurrency cap:</b> At most {@code maxTasksInFlight} tasks are scheduled to execute concurrently.
- *       If the cap is reached, the dispatching thread blocks until a slot becomes available,
+ *   <li><b>Global cap for tasks in flight:</b> At most {@code maxTasksInFlight} tasks can be scheduled to execute, but
+ *       not yet completed. If the cap is reached, the dispatching methods block until a slot becomes available,
  *       providing backpressure to the caller.</li>
  *   <li><b>Per-key serialization:</b> Tasks declared with overlapping synchronizer keys are
  *       executed in dispatch order — a task waits for all previously dispatched tasks that share

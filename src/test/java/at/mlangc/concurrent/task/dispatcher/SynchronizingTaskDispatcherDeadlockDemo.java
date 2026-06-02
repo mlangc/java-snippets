@@ -7,7 +7,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class SynchronizingTaskDispatcherDeadlockDemo {
     static void main() {
-        scenarioWithNonBlockingReentrantCallHittingInFlightLimit();
+        scenarioWithNonBlockingReentrantCall();
     }
 
     static void scenarioWithNonBlockingReentrantCall() {
