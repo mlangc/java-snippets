@@ -30,7 +30,9 @@ dependencies {
     implementation 'com.google.guava:guava:_'
     implementation 'jakarta.annotation:jakarta.annotation-api:_'
     implementation 'com.google.code.findbugs:jsr305:_'
+
     testImplementation 'org.awaitility:awaitility:_'
+    testImplementation "org.wiremock:wiremock:_"
 
     implementation 'io.micrometer:micrometer-registry-dynatrace:_'
 
