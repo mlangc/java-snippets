@@ -29,7 +29,7 @@ This file provides guidance to AI coding assistants working with code in this re
 
 ## Build System
 
-- **Java 25** with `--enable-preview` enabled for all compilation, test, and exec tasks
+- **Java 26** with `--enable-preview` enabled for all compilation, test, and exec tasks; JDK version managed via **`mise.toml`**
 - **refreshVersions** (`de.fayard.refreshVersions`) manages all dependency versions in `versions.properties` using `_` as
   placeholder in `build.gradle` — never hardcode version strings there
 - Three source sets: `main`, `test`, `jmh` (benchmarks), and `jcstress` (concurrency stress tests)
@@ -60,6 +60,11 @@ queues (ch10), elimination-backoff stacks with exchanger (ch11), sorted linked l
 record hash codes, and `Thread.sleep(0)` behavior.
 
 **`vthreads/`** — Virtual thread demos covering deadlock scenarios and `ThreadLocal` behavior.
+
+**`concurrent/executor/deadlock/`** — Investigates deadlock scenarios with bounded thread-pool executors for a blog post.
+
+**`src/scripts/blog/`** — Standalone Java scripts (not part of the Gradle build) for blog post demos, runnable directly with
+`java`. Currently contains `executorDeadlock/` with minimal deadlock demonstrations.
 
 ## Role of AI coding assistants in this repo
 
