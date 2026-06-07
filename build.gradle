@@ -102,6 +102,27 @@ jcstress {
     verbose = true
 }
 
+[blogExecutorDeadlock: 'scripts/blog/executorDeadlock'].each { name, dir ->
+    sourceSets.create(name) {
+        java.srcDirs = ["src/$dir"]
+        compileClasspath += sourceSets.test.output
+        runtimeClasspath += sourceSets.test.output
+    }
+
+    configurations.named("${name}Implementation").configure {
+        extendsFrom configurations.testImplementation
+    }
+    configurations.named("${name}RuntimeOnly").configure {
+        extendsFrom configurations.testRuntimeOnly
+    }
+
+    tasks.register("run${name.capitalize()}", JavaExec) {
+        group = 'scripts'
+        classpath = sourceSets[name].runtimeClasspath
+        mainClass = project.findProperty('mainClass') ?: ''
+    }
+}
+
 tasks.jmh.finalizedBy tasks.jmhReport
 
 tasks.jmhReport.doFirst {

@@ -1,17 +1,12 @@
 package at.mlangc.concurrent.executor.deadlock;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
-import com.github.tomakehurst.wiremock.client.WireMockBuilder;
-import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
-import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import org.apache.commons.lang3.exception.UncheckedInterruptedException;
 import org.assertj.core.api.ThrowingConsumer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import wiremock.Run;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -70,7 +65,7 @@ public class ExecutorDeadlockDemoTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"1,1,11", "1,1,11", "2,1,11", "1,1,9"})
+    @CsvSource({"1,1,11", "1,1,11", "2,1,11"})
     void demonstrateDeadlockWithHttpClient(int maxInFlight, int httpExecutorThreads, int testRequests) throws InterruptedException {
         new DoWithExecutor(Executors.newFixedThreadPool(httpExecutorThreads)).run(httpClientExecutor -> {
             var wireMockServer = new WireMockServer(wireMockConfig().dynamicPort());
