@@ -105,8 +105,8 @@ jcstress {
 [blogExecutorDeadlock: 'scripts/blog/executorDeadlock'].each { name, dir ->
     sourceSets.create(name) {
         java.srcDirs = ["src/$dir"]
-        compileClasspath += sourceSets.test.output
-        runtimeClasspath += sourceSets.test.output
+        compileClasspath += sourceSets.main.output + sourceSets.test.output
+        runtimeClasspath += sourceSets.main.output + sourceSets.test.output
     }
 
     configurations.named("${name}Implementation").configure {

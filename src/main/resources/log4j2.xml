@@ -46,6 +46,7 @@
         </Root>
 
         <Logger name="org.apache.kafka" level="warn"/>
+        <Logger name="at.mlangc.concurrent.TracingExecutorService" level="trace"/>
     </Loggers>
 </Configuration>
 
