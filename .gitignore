@@ -105,3 +105,4 @@ fabric.properties
 *.dll
 *.asm
 .claude/hooks
+*.hprof
