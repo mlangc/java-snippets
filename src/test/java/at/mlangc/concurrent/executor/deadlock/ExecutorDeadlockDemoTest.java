@@ -95,6 +95,28 @@ public class ExecutorDeadlockDemoTest {
         });
     }
 
+    @Test
+    void demonstrateDeadlockWithHttpClientWithoutSemaphore() throws InterruptedException {
+        new DoWithExecutor(Executors.newSingleThreadExecutor()).run(httpClientExecutor -> {
+            var wireMockServer = new WireMockServer(wireMockConfig().dynamicPort());
+            wireMockServer.start();
+
+            try (var httpClient = HttpClient.newBuilder().executor(httpClientExecutor).build()) {
+                wireMockServer.stubFor(get("/test").willReturn(ok()));
+                URI testUri = URI.create(wireMockServer.url("/test"));
+
+                assertThat(
+                        CompletableFuture.allOf(
+                                IntStream.range(0, Runtime.getRuntime().availableProcessors() * 20)
+                                        .mapToObj(_ -> httpClient.sendAsync(HttpRequest.newBuilder(testUri).build(), HttpResponse.BodyHandlers.discarding()))
+                                        .toArray(CompletableFuture<?>[]::new))
+                ).succeedsWithin(1, TimeUnit.SECONDS);
+            } finally {
+                wireMockServer.shutdownServer();
+            }
+        });
+    }
+
     record DoWithExecutor(ExecutorService executor) {
         void run(ThrowingConsumer<ExecutorService> op) throws InterruptedException {
             try {
