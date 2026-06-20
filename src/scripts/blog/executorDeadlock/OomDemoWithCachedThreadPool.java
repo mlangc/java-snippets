@@ -1,5 +1,6 @@
 void main() {
-    var executor = Executors.newCachedThreadPool(Thread.ofPlatform().daemon().factory());
+    //var executor = Executors.newCachedThreadPool(Thread.ofPlatform().daemon().factory());
+    var executor = Executors.newVirtualThreadPerTaskExecutor();
     var threadsToBlock = 10_000;
 
     Runnable chainOfDeath = () -> System.out.println("done");
