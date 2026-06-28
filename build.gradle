@@ -85,10 +85,10 @@ tasks.withType(JavaExec).configureEach {
 }
 
 jmh {
-    includes = ["AtomicSequenceBenchmark"]
-    threads = 2
+    includes = ["ChurnBenchmark.*consumeCpu.*"]
+    threads = 10
     resultFormat = "JSON"
-    //profilers = ["jfr"]
+    profilers = ["gc"]
     //profilers = ["org.openjdk.jmh.profile.XCTraceAsmProfiler"]
 }
 

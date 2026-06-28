@@ -40,7 +40,7 @@ public class AtomicSequenceBenchmark {
         MCS_LOCK, REENTRANT_LIKE_QUEUE_LOCK;
     }
 
-    @Param({"JAVA_REENTRANT_LOCK", "UNFAIR_QUEUE_LOCK", "COMPARE_AND_SET_LOCK"})
+    @Param({"JAVA_REENTRANT_LOCK", "COMPARE_AND_SET_LOCK"})
     SeqImplType implType;
 
     AtomicSequence sequence;
