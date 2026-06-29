@@ -24,7 +24,8 @@ import java.util.zip.GZIPOutputStream;
  *         {@link #consumeCpuNoChurn(ConsumeCpuNoChurn)}.
  *         <br>
  *         This shows how one and the same <code>gc.alloc.rate.norm</code> can result in very different runtimes
- *         that depend on the amount of non-GC-related work done per allocation.
+ *         that depend on the amount of non-GC-related work done per allocation. In particular, you can see that the
+ *         cost of churn is dwarfed by the non-GC-related work for higher <code>tokens</code> values.
  *     </li>
  *
  *     <li>
