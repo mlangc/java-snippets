@@ -6,38 +6,40 @@ import org.openjdk.jmh.infra.Blackhole;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPOutputStream;
 
 /**
- * This benchmark is meant to show how allocation rates impact/don't impact performance on the JVM.
+ * This benchmark is meant to show how allocation rates impact performance on the JVM.
  *
  * <h3>Important:</h3>
- * Run all benchmarks with as many threads of you have cores! Otherwise, GC related work might be performed concurrently,
+ * Run all benchmarks with as many threads as you have cores! Otherwise, GC related work might be performed concurrently,
  * by CPU cores not being used by the benchmark threads directly, and therefore skew the results.
  *
  * <h3>How to run/interpret these benchmarks</h3>
  * 
- * Run & compare either 
+ * Run & compare any of these:
  * <ol>
  *     <li>
- *         {@link #randomizeAndCompressIntoNewArrays(RandomizeAndCompressIntoNewArrays)}
- *         and {@link #randomizeAndCompressReuseData(RandomizeAndCompressIntoExistingArrays)} or
+ *         {@link #consumeCpuAndChurn(ConsumeCpuAndChurn)} and
+ *         {@link #consumeCpuNoChurn(ConsumeCpuNoChurn)}.
+ *         <br>
+ *         This shows how one and the same <code>gc.alloc.rate.norm</code> can result in very different runtimes
+ *         that depend on the amount of non-GC-related work done per allocation.
  *     </li>
- *     
+ *
  *     <li>
- *         {@link #consumeCpuAndChurn(ConsumeCpuAndChurn)} and 
- *         {@link #consumeCpuNoChurn(ConsumeCpuNoChurn)}
+ *         {@link #randomizeAndCompressIntoNewArrays(RandomizeAndCompressIntoNewArrays)}
+ *         and {@link #randomizeAndCompressReuseData(RandomizeAndCompressIntoExistingArrays)}.
+ *         <br>
+ *         This shows how vastly different <code>gc.alloc.rate.norm</code> values can result in very similar runtimes
+ *         in a slightly more realistic setting than the example above.
  *     </li>
  * </ol>
- *
- * Comparing the first pair of benchmarks demonstrates how allocations are affecting performance in a somewhat realistic setting.
- * Comparing the second pair of benchmarks demonstrates how what matters is the amount of CPU consumed per allocation.
  */
-@Fork(value = 1)
-@Warmup(iterations = 3, time = 100, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 5, time = 500, timeUnit = TimeUnit.MILLISECONDS)
-@BenchmarkMode(Mode.Throughput)
+@Fork(value = 3)
+@Warmup(iterations = 5, time = 1)
+@Measurement(iterations = 5, time = 1)
+@BenchmarkMode(Mode.AverageTime)
 public class CostOfAllocRateNormBenchmark {
 
     @State(Scope.Benchmark)
@@ -89,7 +91,7 @@ public class CostOfAllocRateNormBenchmark {
 
     @State(Scope.Benchmark)
     public static class ConsumeCpuAndChurn {
-        @Param(value = { "5000" })
+        @Param(value = { "500", "1000", "5000" })
         int tokens;
 
         @Param("10000")

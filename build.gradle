@@ -85,7 +85,7 @@ tasks.withType(JavaExec).configureEach {
 }
 
 jmh {
-    includes = ["ChurnBenchmark.*consumeCpu.*"]
+    includes = ["CostOfAllocRateNormBenchmark.*consumeCpu.*"]
     threads = 10
     resultFormat = "JSON"
     profilers = ["gc"]
