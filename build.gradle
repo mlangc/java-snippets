@@ -85,10 +85,10 @@ tasks.withType(JavaExec).configureEach {
 }
 
 jmh {
-    includes = ["CostOfAllocRateNormBenchmark.*consumeCpu.*"]
+    includes = ["HashVsLinkedHashMapBenchmark\\.iterate"]
     threads = 10
     resultFormat = "JSON"
-    profilers = ["gc"]
+    //profilers = ["gc"]
     //profilers = ["org.openjdk.jmh.profile.XCTraceAsmProfiler"]
 }
 
