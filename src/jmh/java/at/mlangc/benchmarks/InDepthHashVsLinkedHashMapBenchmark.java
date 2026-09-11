@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit;
 @Warmup(iterations = 5, time = 250, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 5, time = 1000, timeUnit = TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
-public class HashVsLinkedHashMapBenchmark {
+public class InDepthHashVsLinkedHashMapBenchmark {
     public enum MapImpl {
         HASH, LINKED, CONCURRENT;
 
