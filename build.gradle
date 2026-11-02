@@ -1,7 +1,7 @@
 plugins {
     id 'java'
     id "me.champeau.jmh"
-    id "io.morethan.jmhreport"
+    id "io.github.mlangc.jmhreport"
     id "io.github.reyerizo.gradle.jcstress"
 }
 
@@ -85,10 +85,10 @@ tasks.withType(JavaExec).configureEach {
 }
 
 jmh {
-    includes = ["HashVsLinkedHashMapBenchmark\\.iterate"]
-    threads = 10
+    includes = ["\\bHashVsLinkedHashMapBenchmark"]
+    threads = 1
     resultFormat = "JSON"
-    //profilers = ["gc"]
+    profilers = ["gc"]
     //profilers = ["org.openjdk.jmh.profile.XCTraceAsmProfiler"]
 }
 

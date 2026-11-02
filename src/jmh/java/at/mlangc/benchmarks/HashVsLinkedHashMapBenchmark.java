@@ -1,18 +1,18 @@
 package at.mlangc.benchmarks;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.openjdk.jmh.annotations.*;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.SplittableRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 @Fork(value = 1)
 @Warmup(iterations = 5, time = 500, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 5, time = 1000, timeUnit = TimeUnit.MILLISECONDS)
-public class CondensedHashVsLinkedHashMapBenchmark {
-    private static final Logger LOG = LogManager.getLogger(CondensedHashVsLinkedHashMapBenchmark.class);
+@Measurement(iterations = 5, time = 500, timeUnit = TimeUnit.MILLISECONDS)
+public class HashVsLinkedHashMapBenchmark {
 
     public enum Impl {
         HASH, LINKED;
@@ -41,10 +41,10 @@ public class CondensedHashVsLinkedHashMapBenchmark {
         @Param
         Impl impl;
 
-        @Param({/*"5", "50", "500", "5000",*/ "50000"})
+        @Param({"5", "50000"})
         int size;
 
-        @Param({"0.1"/*, "0.75", "0.9"*/})
+        @Param({"0.5", "0.75"})
         float loadFactor;
 
         Map<Integer, Integer> map;
@@ -72,10 +72,10 @@ public class CondensedHashVsLinkedHashMapBenchmark {
         @Param
         Impl impl;
 
-        @Param({/*"5", "50", "500", */"5000"/*,"50000"*/})
+        @Param({"5", "50000"})
         int size;
 
-        @Param({/*"0.1",*/ "0.75"})
+        @Param({"0.5", "0.75"})
         float loadFactor;
 
         SplittableRandom rng;
@@ -118,10 +118,10 @@ public class CondensedHashVsLinkedHashMapBenchmark {
         @Param
         Impl impl;
 
-        @Param({/*"5", "50", "500", */"5000"/*,"50000"*/})
+        @Param({"5", "50000"})
         int size;
 
-        @Param({/*"0.1",*/ "0.75"})
+        @Param({"0.5", "0.75"})
         float loadFactor;
 
         @Param("1.5")
@@ -158,10 +158,10 @@ public class CondensedHashVsLinkedHashMapBenchmark {
         @Param
         Impl impl;
 
-        @Param({/*"5", "50", "500", */"5000"/*,"50000"*/})
+        @Param({"5", "50000"})
         int size;
 
-        @Param({/*"0.1",*/ "0.75"})
+        @Param({"0.5", "0.75"})
         float loadFactor;
 
         @Param("1.5")
@@ -200,7 +200,7 @@ public class CondensedHashVsLinkedHashMapBenchmark {
         @Param
         Impl impl;
 
-        @Param({"50", "500", "5000", "50000"})
+        @Param({"5", "50000"})
         int size;
 
         @Param({"1.05", "1.5", "5"})
@@ -238,7 +238,7 @@ public class CondensedHashVsLinkedHashMapBenchmark {
         @Param
         Impl impl;
 
-        @Param({"50", "500", "5000", "50000"})
+        @Param({"5", "50000"})
         int size;
 
         @Param({"1.05", "1.5", "5"})
